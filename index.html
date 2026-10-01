@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Classroom Wall - Nook</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <!-- Firebase SDKs for Realtime Sync -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -74,9 +73,9 @@
           <button onclick="setTheme('fairy')" id="btn-theme-fairy" class="px-2.5 py-1 rounded-xl text-xs font-bold transition text-slate-300 hover:text-white">🌸 Fairy</button>
         </div>
 
-        <!-- QR Button -->
+        <!-- Guaranteed QR Code Image -->
         <div onclick="openQrModal()" class="cursor-pointer bg-white p-2 rounded-2xl shadow-lg border border-amber-300/40 hover:scale-105 transition flex flex-col items-center">
-          <div id="wall-top-qr" class="w-10 h-10"></div>
+          <img id="wall-top-qr-img" src="" alt="QR Code" class="w-10 h-10 object-contain rounded" />
           <span class="text-[9px] font-bold text-slate-800 mt-1">SCAN ME</span>
         </div>
       </div>
@@ -174,7 +173,9 @@
       <h3 class="text-lg font-bold text-slate-800 mb-1">Scan to Join Wall</h3>
       <p class="text-xs text-slate-500 mb-4">Point your phone camera at the QR code</p>
       
-      <div id="modal-qr-container" class="bg-slate-50 p-4 rounded-2xl border border-slate-200 inline-block mb-4 shadow-inner"></div>
+      <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 inline-block mb-4 shadow-inner">
+        <img id="modal-qr-img" src="" alt="Large QR Code" class="w-40 h-40 object-contain mx-auto" />
+      </div>
 
       <div class="space-y-2">
         <button onclick="copyWallUrl()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-xs transition">
@@ -188,14 +189,10 @@
   </div>
 
   <script>
-    // -------------------------------------------------------------
-    // REALTIME DATABASE CONFIGURATION (Firebase Demo Realtime DB)
-    // -------------------------------------------------------------
     const firebaseConfig = {
       databaseURL: "https://nook-classroom-wall-default-rtdb.firebaseio.com"
     };
     
-    // Initialize Firebase Realtime Sync
     if (!firebase.apps.length) {
       firebase.initializeApp(firebaseConfig);
     }
@@ -219,7 +216,6 @@
     let activeMessages = [];
     let isWallLocked = false;
 
-    // Listen to live database updates across all phones & main screen
     db.ref('nook_wall').on('value', (snapshot) => {
       const data = snapshot.val() || {};
       const msgData = data.messages || {};
@@ -320,7 +316,6 @@
         const calculatedPosX = calculateCollisionFreePosition(activeMessages);
         const newMsgId = 'msg_' + Date.now();
 
-        // Push directly to cloud database
         db.ref(`nook_wall/messages/${newMsgId}`).set({
           name,
           text,
@@ -335,6 +330,7 @@
       });
 
       renderCharactersGrid();
+      updateQrCodeImages();
     });
 
     function cleanExpiredMessages() {
@@ -346,19 +342,14 @@
       });
     }
 
-    function renderQrCodes() {
-      const targetUrl = window.location.href;
-      const topQr = document.getElementById('wall-top-qr');
-      const modalQr = document.getElementById('modal-qr-container');
-      if (!topQr || !modalQr) return;
-
-      topQr.innerHTML = '';
-      modalQr.innerHTML = '';
-
-      if (window.QRCode) {
-        new QRCode(topQr, { text: targetUrl, width: 40, height: 40 });
-        new QRCode(modalQr, { text: targetUrl, width: 160, height: 160 });
-      }
+    function updateQrCodeImages() {
+      const pageUrl = encodeURIComponent(window.location.href);
+      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${pageUrl}`;
+      
+      const topImg = document.getElementById('wall-top-qr-img');
+      const modalImg = document.getElementById('modal-qr-img');
+      if (topImg) topImg.src = qrApiUrl;
+      if (modalImg) modalImg.src = qrApiUrl;
     }
 
     function renderApp() {
@@ -393,7 +384,7 @@
             No active messages right now. Send the first note!
           </div>
         `;
-        renderQrCodes();
+        updateQrCodeImages();
         return;
       }
 
@@ -433,7 +424,7 @@
         `;
       }).join('');
 
-      renderQrCodes();
+      updateQrCodeImages();
     }
 
     function escapeHtml(str) {

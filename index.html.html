@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Classroom Wall - Nook</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Fredoka', 'Tajawal', sans-serif; }
+
+    .theme-sunset {
+      background: linear-gradient(180deg, #1A0E2E 0%, #4A1D36 40%, #A3483B 70%, #2A1510 100%);
+    }
+    .theme-night {
+      background: linear-gradient(180deg, #050B14 0%, #0A192F 50%, #172A45 80%, #030712 100%);
+    }
+    .theme-fairy {
+      background: linear-gradient(180deg, #0D1F1D 0%, #1A3A36 45%, #2D5A52 75%, #081413 100%);
+    }
+
+    @keyframes dropBounce {
+      0% { transform: translateY(-100px) scale(0.6); opacity: 0; }
+      60% { transform: translateY(12px) scale(1.08); opacity: 1; }
+      80% { transform: translateY(-4px) scale(0.96); }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    @keyframes avatarBob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    @keyframes spinJump {
+      0% { transform: translateY(0) rotate(0deg) scale(1); }
+      50% { transform: translateY(-24px) rotate(180deg) scale(1.2); }
+      100% { transform: translateY(0) rotate(360deg) scale(1); }
+    }
+    @keyframes floatParticle {
+      0% { transform: translateY(0) translateX(0); opacity: 0.2; }
+      50% { transform: translateY(-30px) translateX(15px); opacity: 0.8; }
+      100% { transform: translateY(-60px) translateX(-10px); opacity: 0; }
+    }
+
+    .animate-drop { animation: dropBounce 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+    .animate-walk { animation: avatarBob 0.9s ease-in-out infinite; }
+    .animate-spin-jump { animation: spinJump 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    .particle { animation: floatParticle 6s ease-in-out infinite; }
+  </style>
+</head>
+<body id="app-body" class="theme-sunset text-slate-100 min-h-screen p-4 sm:p-6 md:p-8 flex items-center justify-center transition-all duration-700">
+
+  <div class="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+
+    <!-- DISPLAY SCREEN -->
+    <div class="lg:col-span-7 bg-slate-900/60 backdrop-blur-xl rounded-[36px] p-6 sm:p-8 shadow-2xl border border-white/10 flex flex-col justify-between relative overflow-hidden min-h-[620px]">
+
+      <!-- Top Header -->
+      <div class="flex flex-wrap items-center justify-between gap-3 z-20 mb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full uppercase tracking-wider">NOOK</span>
+            <span class="text-xs text-amber-100/70 font-medium">TREEHOUSE COURTYARD</span>
+          </div>
+          <h1 class="text-xl sm:text-2xl font-bold text-white mt-1 tracking-wide">The Classroom Wall</h1>
+        </div>
+
+        <!-- Lighting Toggles -->
+        <div class="flex items-center gap-1.5 bg-black/40 backdrop-blur-md p-1.5 rounded-2xl border border-white/10">
+          <button onclick="setTheme('sunset')" id="btn-theme-sunset" class="px-2.5 py-1 rounded-xl text-xs font-bold transition bg-amber-500 text-slate-950 shadow">🌅 Sunset</button>
+          <button onclick="setTheme('night')" id="btn-theme-night" class="px-2.5 py-1 rounded-xl text-xs font-bold transition text-slate-300 hover:text-white">🌙 Night</button>
+          <button onclick="setTheme('fairy')" id="btn-theme-fairy" class="px-2.5 py-1 rounded-xl text-xs font-bold transition text-slate-300 hover:text-white">🌸 Fairy</button>
+        </div>
+
+        <!-- QR Button -->
+        <div onclick="openQrModal()" class="cursor-pointer bg-white p-2 rounded-2xl shadow-lg border border-amber-300/40 hover:scale-105 transition flex flex-col items-center">
+          <div id="wall-top-qr" class="w-10 h-10"></div>
+          <span class="text-[9px] font-bold text-slate-800 mt-1">SCAN ME</span>
+        </div>
+      </div>
+
+      <!-- Courtyard Stage -->
+      <div class="flex-1 relative rounded-2xl border border-white/10 overflow-hidden flex flex-col justify-between p-4 my-2">
+
+        <!-- Lanterns -->
+        <div class="absolute top-0 left-0 right-0 h-10 flex justify-between items-start px-6 z-10 opacity-80 pointer-events-none">
+          <div class="w-3 h-3 rounded-full bg-amber-300 shadow-[0_0_12px_#FCD34D]"></div>
+          <div class="w-3 h-3 rounded-full bg-amber-300 shadow-[0_0_12px_#FCD34D] mt-2"></div>
+          <div class="w-3 h-3 rounded-full bg-amber-300 shadow-[0_0_12px_#FCD34D]"></div>
+          <div class="w-3 h-3 rounded-full bg-amber-300 shadow-[0_0_12px_#FCD34D] mt-2"></div>
+          <div class="w-3 h-3 rounded-full bg-amber-300 shadow-[0_0_12px_#FCD34D]"></div>
+        </div>
+
+        <!-- Particles -->
+        <div class="absolute inset-0 pointer-events-none z-0">
+          <div class="particle absolute top-1/4 left-1/5 w-2 h-2 rounded-full bg-amber-200/60 blur-[1px]"></div>
+          <div class="particle absolute top-1/3 right-1/4 w-3 h-3 rounded-full bg-emerald-200/50 blur-[1px]" style="animation-delay: 2s;"></div>
+          <div class="particle absolute top-1/2 left-2/3 w-2 h-2 rounded-full bg-rose-200/60 blur-[1px]" style="animation-delay: 4s;"></div>
+        </div>
+
+        <!-- Floor -->
+        <div class="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/80 via-amber-950/40 to-transparent border-t border-amber-500/20"></div>
+
+        <!-- Messages Container -->
+        <div id="wall-messages-container" class="relative flex-1 my-6 w-full overflow-hidden">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <!-- Footer -->
+        <div class="relative z-20 text-center text-xs text-amber-100/80 font-medium bg-black/40 backdrop-blur-md py-2 px-4 rounded-xl border border-white/10 shadow-sm mt-auto flex items-center justify-between">
+          <span>✨ Leave a little good energy. </span>
+          <div id="sorting-pills" class="flex items-center gap-1">
+            <button onclick="setFilter('all')" id="filter-all" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500 text-slate-950">All</button>
+            <button onclick="setFilter('popular')" id="filter-popular" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/10 text-white hover:bg-white/20">🔥 Popular</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STUDENT FORM -->
+    <div class="lg:col-span-5 bg-white rounded-[36px] p-6 sm:p-8 shadow-2xl border border-slate-100 flex flex-col justify-between min-h-[620px] text-slate-800">
+
+      <div>
+        <div class="mb-5 text-left">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xs font-bold border border-slate-800 text-slate-800 px-2.5 py-0.5 rounded-full">NOOK</span>
+            <span class="text-[11px] text-slate-400">the treehouse courtyard</span>
+          </div>
+          <h2 class="text-2xl font-bold text-slate-800">A little thought. A little character.</h2>
+          <p class="text-xs text-slate-500 mt-1 leading-relaxed">Keep it fun, kind and short. Your character will carry it across the big screen.</p>
+        </div>
+
+        <div id="locked-notice" class="hidden mb-4 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-center text-xs font-bold">
+          🔒 Classroom wall submissions are currently closed.
+        </div>
+
+        <form id="message-form" class="space-y-4">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Your name</label>
+            <input type="text" id="user-name" maxlength="20" required placeholder="What should we call you?" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500">
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Your message</label>
+              <span class="text-[10px] text-slate-400 font-mono"><span id="char-counter">0</span> / 120</span>
+            </div>
+            <textarea id="user-text" maxlength="120" rows="3" required placeholder="Type a message (English or Arabic)..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"></textarea>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Choose your character</label>
+            <div id="character-grid" class="grid grid-cols-4 gap-2"></div>
+          </div>
+
+          <button type="submit" id="submit-btn" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition transform active:scale-95 text-sm flex items-center justify-center gap-2">
+            <span>Send to the wall</span>
+            <span class="text-base">→</span>
+          </button>
+        </form>
+      </div>
+
+      <div class="mt-4 pt-4 border-t border-slate-100 text-center text-[11px] text-slate-400">
+        Nook Classroom Wall • Dual Arabic/English
+      </div>
+    </div>
+  </div>
+
+  <!-- QR MODAL -->
+  <div id="qr-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl border border-slate-100 text-slate-800">
+      <h3 class="text-lg font-bold text-slate-800 mb-1">Scan to Join Wall</h3>
+      <p class="text-xs text-slate-500 mb-4">Point your phone camera at the QR code</p>
+
+      <div id="modal-qr-container" class="bg-slate-50 p-4 rounded-2xl border border-slate-200 inline-block mb-4 shadow-inner"></div>
+
+      <div class="space-y-2">
+        <button onclick="copyWallUrl()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-xs transition">
+          📋 Copy Wall Link
+        </button>
+        <button onclick="closeQrModal()" class="w-full bg-amber-600 text-white font-bold py-2.5 rounded-xl text-xs transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'nook_wall_data_v2';
+    const EXPIRATION_MS = 30 * 60 * 1000;
+
+    const CHARACTERS = [
+      { id: 'bunny', name: 'Bunny', icon: '🐰' },
+      { id: 'robot', name: 'Robot', icon: '🤖' },
+      { id: 'fox', name: 'Sleepy Fox', icon: '🦊' },
+      { id: 'cat', name: 'Cool Cat', icon: '🐱' },
+      { id: 'duck', name: 'Duck', icon: '🦆' },
+      { id: 'frog', name: 'Matcha Frog', icon: '🐸' },
+      { id: 'panda', name: 'Happy Panda', icon: '🐼' },
+      { id: 'owl', name: 'Wise Owl', icon: '🦉' }
+    ];
+
+    let selectedCharId = 'bunny';
+    let currentTheme = 'sunset';
+    let currentFilter = 'all';
+
+    function getState() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try { return JSON.parse(saved); } catch(e) {}
+      }
+      return { messages: [], isLocked: false, customUrl: window.location.href };
+    }
+
+    function saveState(state) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderApp();
+    }
+
+    function calculateCollisionFreePosition(existingMessages) {
+      const minDistance = 18;
+      const minX = 8;
+      const maxX = 78;
+      let attempts = 0;
+      let posX = Math.floor(Math.random() * (maxX - minX)) + minX;
+
+      while (attempts < 20) {
+        let isTooClose = existingMessages.some(m => Math.abs(m.posX - posX) < minDistance);
+        if (!isTooClose) break;
+        posX = Math.floor(Math.random() * (maxX - minX)) + minX;
+        attempts++;
+      }
+      return posX;
+    }
+
+    function setTheme(theme) {
+      currentTheme = theme;
+      const body = document.getElementById('app-body');
+      body.className = `theme-${theme} text-slate-100 min-h-screen p-4 sm:p-6 md:p-8 flex items-center justify-center transition-all duration-700`;
+
+      ['sunset', 'night', 'fairy'].forEach(t => {
+        const btn = document.getElementById(`btn-theme-${t}`);
+        if (btn) {
+          btn.className = t === theme
+            ? "px-2.5 py-1 rounded-xl text-xs font-bold transition bg-amber-500 text-slate-950 shadow"
+            : "px-2.5 py-1 rounded-xl text-xs font-bold transition text-slate-300 hover:text-white";
+        }
+      });
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.getElementById('filter-all').className = filter === 'all' ? "px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500 text-slate-950" : "px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/10 text-white hover:bg-white/20";
+      document.getElementById('filter-popular').className = filter === 'popular' ? "px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500 text-slate-950" : "px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/10 text-white hover:bg-white/20";
+      renderApp();
+    }
+
+    function addHeart(msgId) {
+      const state = getState();
+      const msg = state.messages.find(m => m.id === msgId);
+      if (msg) {
+        msg.hearts = (msg.hearts || 0) + 1;
+        saveState(state);
+      }
+    }
+
+    function triggerAvatarJump(elementId) {
+      const el = document.getElementById(elementId);
+      if (el) {
+        el.classList.add('animate-spin-jump');
+        setTimeout(() => el.classList.remove('animate-spin-jump'), 600);
+      }
+    }
+
+    function renderCharactersGrid() {
+      const grid = document.getElementById('character-grid');
+      if (!grid) return;
+      grid.innerHTML = CHARACTERS.map(c => `
+        <button type="button" onclick="selectCharacter('${c.id}')" class="p-2 rounded-xl border flex flex-col items-center gap-1 transition ${selectedCharId === c.id ? 'bg-amber-50 border-amber-500 text-amber-900 font-bold scale-105 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}">
+          <span class="text-xl">${c.icon}</span>
+          <span class="text-[9px] leading-tight truncate w-full text-center">${c.name}</span>
+        </button>
+      `).join('');
+    }
+
+    function selectCharacter(id) {
+      selectedCharId = id;
+      renderCharactersGrid();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('user-text').addEventListener('input', (e) => {
+        document.getElementById('char-counter').textContent = e.target.value.length;
+      });
+
+      document.getElementById('message-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const state = getState();
+        if (state.isLocked) return;
+
+        const name = document.getElementById('user-name').value.trim();
+        const text = document.getElementById('user-text').value.trim();
+        if (!name || !text) return;
+
+        const calculatedPosX = calculateCollisionFreePosition(state.messages);
+
+        const newMsg = {
+          id: Date.now(),
+          name,
+          text,
+          charId: selectedCharId,
+          createdAt: Date.now(),
+          posX: calculatedPosX,
+          hearts: 1
+        };
+
+        state.messages.unshift(newMsg);
+        saveState(state);
+
+        document.getElementById('user-text').value = '';
+        document.getElementById('char-counter').textContent = '0';
+      });
+
+      renderCharactersGrid();
+      renderApp();
+    });
+
+    function cleanExpiredMessages() {
+      const state = getState();
+      const now = Date.now();
+      const valid = state.messages.filter(m => (now - m.createdAt) < EXPIRATION_MS);
+      if (valid.length !== state.messages.length) {
+        state.messages = valid;
+        saveState(state);
+      }
+    }
+
+    function renderQrCodes() {
+      const state = getState();
+      const targetUrl = state.customUrl || window.location.href;
+
+      const topQr = document.getElementById('wall-top-qr');
+      const modalQr = document.getElementById('modal-qr-container');
+      if (!topQr || !modalQr) return;
+
+      topQr.innerHTML = '';
+      modalQr.innerHTML = '';
+
+      if (window.QRCode) {
+        new QRCode(topQr, { text: targetUrl, width: 40, height: 40 });
+        new QRCode(modalQr, { text: targetUrl, width: 160, height: 160 });
+      }
+    }
+
+    function renderApp() {
+      cleanExpiredMessages();
+      const state = getState();
+
+      const lockNotice = document.getElementById('locked-notice');
+      const submitBtn = document.getElementById('submit-btn');
+      const textInput = document.getElementById('user-text');
+      const nameInput = document.getElementById('user-name');
+
+      if (state.isLocked) {
+        lockNotice?.classList.remove('hidden');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.add('opacity-50', 'cursor-not-allowed'); }
+        if (textInput) textInput.disabled = true;
+        if (nameInput) nameInput.disabled = true;
+      } else {
+        lockNotice?.classList.add('hidden');
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove('opacity-50', 'cursor-not-allowed'); }
+        if (textInput) textInput.disabled = false;
+        if (nameInput) nameInput.disabled = false;
+      }
+
+      const container = document.getElementById('wall-messages-container');
+      if (!container) return;
+
+      let displayMessages = [...state.messages];
+      if (currentFilter === 'popular') {
+        displayMessages.sort((a, b) => (b.hearts || 0) - (a.hearts || 0));
+      }
+
+      if (displayMessages.length === 0) {
+        container.innerHTML = `
+          <div class="h-full flex items-center justify-center text-amber-100/40 text-xs font-medium italic">
+            No active messages right now. Send the first note!
+          </div>
+        `;
+        renderQrCodes();
+        return;
+      }
+
+      container.innerHTML = displayMessages.map((m, index) => {
+        const charObj = CHARACTERS.find(c => c.id === m.charId) || CHARACTERS[0];
+        const isLatest = index === 0;
+        const isRtl = /[\u0600-\u06FF]/.test(m.text);
+        const remainingMinutes = Math.max(0, Math.ceil((EXPIRATION_MS - (Date.now() - m.createdAt)) / 60000));
+
+        const verticalStaggerLevels = [8, 32, 56];
+        const bottomOffset = verticalStaggerLevels[index % verticalStaggerLevels.length];
+
+        return `
+          <div class="absolute ${isLatest ? 'animate-drop' : ''}" style="left: ${m.posX}%; bottom: ${bottomOffset}px; transform: translateX(-50%); transition: all 0.5s ease;">
+
+            <div class="mb-2 p-3 rounded-2xl shadow-2xl max-w-[200px] border text-xs relative bg-white border-slate-200 text-slate-900" dir="${isRtl ? 'rtl' : 'ltr'}">
+              ${isLatest ? `<span class="absolute -top-2 left-2 bg-amber-600 text-white text-[8px] font-bold px-2 py-0.5 rounded-full shadow">Latest message</span>` : ''}
+
+              <div class="font-bold text-[11px] text-slate-900 mb-0.5 flex items-center justify-between gap-2">
+                <span class="truncate">${escapeHtml(m.name)}</span>
+                <span class="text-[9px] text-slate-400 font-mono">${remainingMinutes}m</span>
+              </div>
+
+              <p class="leading-snug break-words mb-1.5 text-[11px] text-slate-800 font-medium">${escapeHtml(m.text)}</p>
+
+              <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+                <button onclick="addHeart(${m.id})" class="text-[10px] text-rose-600 font-bold bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-full transition flex items-center gap-1 active:scale-95">
+                  ❤️ <span>${m.hearts || 1}</span>
+                </button>
+              </div>
+            </div>
+
+            <div id="avatar-anim-${m.id}" onclick="triggerAvatarJump('avatar-anim-${m.id}')" class="text-3xl text-center animate-walk select-none cursor-pointer">
+              ${charObj.icon}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      renderQrCodes();
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function openQrModal() { document.getElementById('qr-modal')?.classList.remove('hidden'); }
+    function closeQrModal() { document.getElementById('qr-modal')?.classList.add('hidden'); }
+
+    function copyWallUrl() {
+      const state = getState();
+      navigator.clipboard.writeText(state.customUrl || window.location.href);
+      alert("Wall URL copied to clipboard!");
+    }
+
+    window.addEventListener('storage', renderApp);
+    setInterval(cleanExpiredMessages, 30000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nook Wall - Teacher Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Fredoka', 'Tajawal', sans-serif; background-color: #0F172A; }
+  </style>
+</head>
+<body class="min-h-screen text-slate-100 p-4 sm:p-8 flex justify-center items-start">
+
+  <div class="w-full max-w-3xl bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+    
+    <!-- Header -->
+    <div class="flex items-center justify-between pb-6 border-b border-slate-800 mb-6">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full uppercase">MODERATION PANEL</span>
+        </div>
+        <h1 class="text-2xl font-bold text-white">Classroom Wall Controls</h1>
+      </div>
+      <a href="index.html" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl transition">← Open Wall</a>
+    </div>
+
+    <!-- Controls Box -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      
+      <!-- Lock Toggle -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-white">Wall Submissions</h3>
+          <p class="text-xs text-slate-400 mt-0.5" id="lock-status-label">Accepting posts</p>
+        </div>
+        <button id="toggle-lock-btn" onclick="toggleLock()" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600 hover:bg-emerald-500 text-white shadow">
+          Unlocked
+        </button>
+      </div>
+
+      <!-- Clear Board -->
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-white">Clear Wall</h3>
+          <p class="text-xs text-slate-400 mt-0.5">Remove all active posts</p>
+        </div>
+        <button onclick="clearAllMessages()" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-rose-600/80 hover:bg-rose-600 text-white shadow">
+          Clear All
+        </button>
+      </div>
+    </div>
+
+    <!-- Custom URL Configuration -->
+    <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-4 mb-8">
+      <label class="block text-xs font-bold text-slate-300 mb-1">Custom Live URL (for QR Code Generation)</label>
+      <div class="flex gap-2">
+        <input type="text" id="custom-url-input" placeholder="https://yourname.github.io/classroom-wall/" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+        <button onclick="saveCustomUrl()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition">Save URL</button>
+      </div>
+    </div>
+
+    <!-- Active Messages List -->
+    <div>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-white">Active Posts (<span id="msg-count">0</span>)</h2>
+        <span class="text-xs text-slate-400">One-tap moderation</span>
+      </div>
+
+      <div id="admin-messages-list" class="space-y-3">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'nook_wall_data_v2';
+
+    function getState() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try { return JSON.parse(saved); } catch(e) {}
+      }
+      return { messages: [], isLocked: false, customUrl: '' };
+    }
+
+    function saveState(state) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderAdmin();
+    }
+
+    function toggleLock() {
+      const state = getState();
+      state.isLocked = !state.isLocked;
+      saveState(state);
+    }
+
+    function deleteMessage(id) {
+      const state = getState();
+      state.messages = state.messages.filter(m => m.id !== id);
+      saveState(state);
+    }
+
+    function clearAllMessages() {
+      if (confirm('Are you sure you want to delete all posts from the classroom wall?')) {
+        const state = getState();
+        state.messages = [];
+        saveState(state);
+      }
+    }
+
+    function saveCustomUrl() {
+      const state = getState();
+      const url = document.getElementById('custom-url-input').value.trim();
+      state.customUrl = url;
+      saveState(state);
+      alert('Custom URL saved! QR codes will now generate using this URL.');
+    }
+
+    function renderAdmin() {
+      const state = getState();
+
+      // Lock button state
+      const lockBtn = document.getElementById('toggle-lock-btn');
+      const lockLabel = document.getElementById('lock-status-label');
+      if (state.isLocked) {
+        lockBtn.textContent = '🔒 Locked';
+        lockBtn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-rose-600 hover:bg-rose-500 text-white shadow';
+        lockLabel.textContent = 'Submissions closed';
+      } else {
+        lockBtn.textContent = '🔓 Unlocked';
+        lockBtn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600 hover:bg-emerald-500 text-white shadow';
+        lockLabel.textContent = 'Accepting posts';
+      }
+
+      // URL Input
+      const urlInput = document.getElementById('custom-url-input');
+      if (urlInput && !urlInput.value && state.customUrl) {
+        urlInput.value = state.customUrl;
+      }
+
+      // Messages list
+      const list = document.getElementById('admin-messages-list');
+      const count = document.getElementById('msg-count');
+      if (count) count.textContent = state.messages.length;
+
+      if (!list) return;
+
+      if (state.messages.length === 0) {
+        list.innerHTML = `
+          <div class="text-center py-8 text-slate-500 text-xs">
+            No active posts on the wall right now.
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = state.messages.map(m => `
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 flex items-start justify-between gap-4">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="font-bold text-xs text-amber-300 truncate">${escapeHtml(m.name)}</span>
+              <span class="text-[10px] text-slate-500 font-mono">${new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              <span class="text-[10px] bg-rose-950/80 text-rose-300 px-2 py-0.5 rounded-full font-bold">❤️ ${m.hearts || 1}</span>
+            </div>
+            <p class="text-xs text-slate-200 break-words">${escapeHtml(m.text)}</p>
+          </div>
+          <button onclick="deleteMessage(${m.id})" class="bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white px-3 py-1.5 rounded-xl text-xs font-bold transition border border-rose-500/30">
+            Delete ✕
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    document.addEventListener('DOMContentLoaded', renderAdmin);
+    window.addEventListener('storage', renderAdmin);
+  </script>
+</body>
+</html>

@@ -6,6 +6,9 @@
   <title>Classroom Wall - Nook</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Firebase SDKs for Realtime Sync -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Fredoka', 'Tajawal', sans-serif; }
@@ -50,10 +53,10 @@
 <body id="app-body" class="theme-sunset text-slate-100 min-h-screen p-4 sm:p-6 md:p-8 flex items-center justify-center transition-all duration-700">
 
   <div class="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-
+    
     <!-- DISPLAY SCREEN -->
     <div class="lg:col-span-7 bg-slate-900/60 backdrop-blur-xl rounded-[36px] p-6 sm:p-8 shadow-2xl border border-white/10 flex flex-col justify-between relative overflow-hidden min-h-[620px]">
-
+      
       <!-- Top Header -->
       <div class="flex flex-wrap items-center justify-between gap-3 z-20 mb-4">
         <div>
@@ -80,7 +83,7 @@
 
       <!-- Courtyard Stage -->
       <div class="flex-1 relative rounded-2xl border border-white/10 overflow-hidden flex flex-col justify-between p-4 my-2">
-
+        
         <!-- Lanterns -->
         <div class="absolute top-0 left-0 right-0 h-10 flex justify-between items-start px-6 z-10 opacity-80 pointer-events-none">
           <div class="w-3 h-3 rounded-full bg-amber-300 shadow-[0_0_12px_#FCD34D]"></div>
@@ -107,7 +110,7 @@
 
         <!-- Footer -->
         <div class="relative z-20 text-center text-xs text-amber-100/80 font-medium bg-black/40 backdrop-blur-md py-2 px-4 rounded-xl border border-white/10 shadow-sm mt-auto flex items-center justify-between">
-          <span>✨ Leave a little good energy. </span>
+          <span>✨ Leave a little good energy. Scan QR or tap NFC tag to join.</span>
           <div id="sorting-pills" class="flex items-center gap-1">
             <button onclick="setFilter('all')" id="filter-all" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500 text-slate-950">All</button>
             <button onclick="setFilter('popular')" id="filter-popular" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/10 text-white hover:bg-white/20">🔥 Popular</button>
@@ -118,7 +121,7 @@
 
     <!-- STUDENT FORM -->
     <div class="lg:col-span-5 bg-white rounded-[36px] p-6 sm:p-8 shadow-2xl border border-slate-100 flex flex-col justify-between min-h-[620px] text-slate-800">
-
+      
       <div>
         <div class="mb-5 text-left">
           <div class="flex items-center gap-2 mb-2">
@@ -170,7 +173,7 @@
     <div class="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl border border-slate-100 text-slate-800">
       <h3 class="text-lg font-bold text-slate-800 mb-1">Scan to Join Wall</h3>
       <p class="text-xs text-slate-500 mb-4">Point your phone camera at the QR code</p>
-
+      
       <div id="modal-qr-container" class="bg-slate-50 p-4 rounded-2xl border border-slate-200 inline-block mb-4 shadow-inner"></div>
 
       <div class="space-y-2">
@@ -185,9 +188,20 @@
   </div>
 
   <script>
-    const STORAGE_KEY = 'nook_wall_data_v2';
-    const EXPIRATION_MS = 30 * 60 * 1000;
+    // -------------------------------------------------------------
+    // REALTIME DATABASE CONFIGURATION (Firebase Demo Realtime DB)
+    // -------------------------------------------------------------
+    const firebaseConfig = {
+      databaseURL: "https://nook-classroom-wall-default-rtdb.firebaseio.com"
+    };
+    
+    // Initialize Firebase Realtime Sync
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
 
+    const EXPIRATION_MS = 30 * 60 * 1000;
     const CHARACTERS = [
       { id: 'bunny', name: 'Bunny', icon: '🐰' },
       { id: 'robot', name: 'Robot', icon: '🤖' },
@@ -202,21 +216,25 @@
     let selectedCharId = 'bunny';
     let currentTheme = 'sunset';
     let currentFilter = 'all';
+    let activeMessages = [];
+    let isWallLocked = false;
 
-    function getState() {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        try { return JSON.parse(saved); } catch(e) {}
-      }
-      return { messages: [], isLocked: false, customUrl: "https://lamiyayousuf-dot.github.io/classroom-wall/" };
-    }
+    // Listen to live database updates across all phones & main screen
+    db.ref('nook_wall').on('value', (snapshot) => {
+      const data = snapshot.val() || {};
+      const msgData = data.messages || {};
+      isWallLocked = !!data.isLocked;
 
-    function saveState(state) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      activeMessages = Object.keys(msgData).map(key => ({
+        id: key,
+        ...msgData[key]
+      })).sort((a, b) => b.createdAt - a.createdAt);
+
+      cleanExpiredMessages();
       renderApp();
-    }
+    });
 
-    function calculateCollisionFreePosition(existingMessages) {
+    function calculateCollisionFreePosition(existing) {
       const minDistance = 18;
       const minX = 8;
       const maxX = 78;
@@ -224,7 +242,7 @@
       let posX = Math.floor(Math.random() * (maxX - minX)) + minX;
 
       while (attempts < 20) {
-        let isTooClose = existingMessages.some(m => Math.abs(m.posX - posX) < minDistance);
+        let isTooClose = existing.some(m => Math.abs(m.posX - posX) < minDistance);
         if (!isTooClose) break;
         posX = Math.floor(Math.random() * (maxX - minX)) + minX;
         attempts++;
@@ -240,8 +258,8 @@
       ['sunset', 'night', 'fairy'].forEach(t => {
         const btn = document.getElementById(`btn-theme-${t}`);
         if (btn) {
-          btn.className = t === theme
-            ? "px-2.5 py-1 rounded-xl text-xs font-bold transition bg-amber-500 text-slate-950 shadow"
+          btn.className = t === theme 
+            ? "px-2.5 py-1 rounded-xl text-xs font-bold transition bg-amber-500 text-slate-950 shadow" 
             : "px-2.5 py-1 rounded-xl text-xs font-bold transition text-slate-300 hover:text-white";
         }
       });
@@ -255,12 +273,11 @@
     }
 
     function addHeart(msgId) {
-      const state = getState();
-      const msg = state.messages.find(m => m.id === msgId);
-      if (msg) {
-        msg.hearts = (msg.hearts || 0) + 1;
-        saveState(state);
-      }
+      const msgRef = db.ref(`nook_wall/messages/${msgId}`);
+      msgRef.transaction(msg => {
+        if (msg) { msg.hearts = (msg.hearts || 0) + 1; }
+        return msg;
+      });
     }
 
     function triggerAvatarJump(elementId) {
@@ -294,50 +311,43 @@
 
       document.getElementById('message-form').addEventListener('submit', (e) => {
         e.preventDefault();
-        const state = getState();
-        if (state.isLocked) return;
+        if (isWallLocked) return;
 
         const name = document.getElementById('user-name').value.trim();
         const text = document.getElementById('user-text').value.trim();
         if (!name || !text) return;
 
-        const calculatedPosX = calculateCollisionFreePosition(state.messages);
+        const calculatedPosX = calculateCollisionFreePosition(activeMessages);
+        const newMsgId = 'msg_' + Date.now();
 
-        const newMsg = {
-          id: Date.now(),
+        // Push directly to cloud database
+        db.ref(`nook_wall/messages/${newMsgId}`).set({
           name,
           text,
           charId: selectedCharId,
           createdAt: Date.now(),
           posX: calculatedPosX,
           hearts: 1
-        };
-
-        state.messages.unshift(newMsg);
-        saveState(state);
+        });
 
         document.getElementById('user-text').value = '';
         document.getElementById('char-counter').textContent = '0';
       });
 
       renderCharactersGrid();
-      renderApp();
     });
 
     function cleanExpiredMessages() {
-      const state = getState();
       const now = Date.now();
-      const valid = state.messages.filter(m => (now - m.createdAt) < EXPIRATION_MS);
-      if (valid.length !== state.messages.length) {
-        state.messages = valid;
-        saveState(state);
-      }
+      activeMessages.forEach(m => {
+        if ((now - m.createdAt) >= EXPIRATION_MS) {
+          db.ref(`nook_wall/messages/${m.id}`).remove();
+        }
+      });
     }
 
     function renderQrCodes() {
-      const state = getState();
-      const targetUrl = state.customUrl || window.location.href;
-
+      const targetUrl = window.location.href;
       const topQr = document.getElementById('wall-top-qr');
       const modalQr = document.getElementById('modal-qr-container');
       if (!topQr || !modalQr) return;
@@ -352,15 +362,12 @@
     }
 
     function renderApp() {
-      cleanExpiredMessages();
-      const state = getState();
-
       const lockNotice = document.getElementById('locked-notice');
       const submitBtn = document.getElementById('submit-btn');
       const textInput = document.getElementById('user-text');
       const nameInput = document.getElementById('user-name');
 
-      if (state.isLocked) {
+      if (isWallLocked) {
         lockNotice?.classList.remove('hidden');
         if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.add('opacity-50', 'cursor-not-allowed'); }
         if (textInput) textInput.disabled = true;
@@ -374,8 +381,8 @@
 
       const container = document.getElementById('wall-messages-container');
       if (!container) return;
-
-      let displayMessages = [...state.messages];
+      
+      let displayMessages = [...activeMessages];
       if (currentFilter === 'popular') {
         displayMessages.sort((a, b) => (b.hearts || 0) - (a.hearts || 0));
       }
@@ -401,7 +408,7 @@
 
         return `
           <div class="absolute ${isLatest ? 'animate-drop' : ''}" style="left: ${m.posX}%; bottom: ${bottomOffset}px; transform: translateX(-50%); transition: all 0.5s ease;">
-
+            
             <div class="mb-2 p-3 rounded-2xl shadow-2xl max-w-[200px] border text-xs relative bg-white border-slate-200 text-slate-900" dir="${isRtl ? 'rtl' : 'ltr'}">
               ${isLatest ? `<span class="absolute -top-2 left-2 bg-amber-600 text-white text-[8px] font-bold px-2 py-0.5 rounded-full shadow">Latest message</span>` : ''}
 
@@ -413,7 +420,7 @@
               <p class="leading-snug break-words mb-1.5 text-[11px] text-slate-800 font-medium">${escapeHtml(m.text)}</p>
 
               <div class="flex items-center justify-between pt-1 border-t border-slate-100">
-                <button onclick="addHeart(${m.id})" class="text-[10px] text-rose-600 font-bold bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-full transition flex items-center gap-1 active:scale-95">
+                <button onclick="addHeart('${m.id}')" class="text-[10px] text-rose-600 font-bold bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-full transition flex items-center gap-1 active:scale-95">
                   ❤️ <span>${m.hearts || 1}</span>
                 </button>
               </div>
@@ -435,14 +442,11 @@
 
     function openQrModal() { document.getElementById('qr-modal')?.classList.remove('hidden'); }
     function closeQrModal() { document.getElementById('qr-modal')?.classList.add('hidden'); }
-
     function copyWallUrl() {
-      const state = getState();
-      navigator.clipboard.writeText(state.customUrl || window.location.href);
+      navigator.clipboard.writeText(window.location.href);
       alert("Wall URL copied to clipboard!");
     }
 
-    window.addEventListener('storage', renderApp);
     setInterval(cleanExpiredMessages, 30000);
   </script>
 </body>

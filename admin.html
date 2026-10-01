@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nook Wall - Teacher Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase SDKs for Realtime Sync -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Fredoka', 'Tajawal', sans-serif; background-color: #0F172A; }
@@ -51,15 +54,6 @@
       </div>
     </div>
 
-    <!-- Custom URL Configuration -->
-    <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-4 mb-8">
-      <label class="block text-xs font-bold text-slate-300 mb-1">Custom Live URL (for QR Code Generation)</label>
-      <div class="flex gap-2">
-        <input type="text" id="custom-url-input" placeholder="https://yourname.github.io/classroom-wall/" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
-        <button onclick="saveCustomUrl()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition">Save URL</button>
-      </div>
-    </div>
-
     <!-- Active Messages List -->
     <div>
       <div class="flex items-center justify-between mb-4">
@@ -75,79 +69,73 @@
   </div>
 
   <script>
-    const STORAGE_KEY = 'nook_wall_data_v2';
+    // Firebase Configuration
+    const firebaseConfig = {
+      databaseURL: "https://nook-classroom-wall-default-rtdb.firebaseio.com"
+    };
 
-    function getState() {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        try { return JSON.parse(saved); } catch(e) {}
-      }
-      return { messages: [], isLocked: false, customUrl: '' };
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
     }
+    const db = firebase.database();
 
-    function saveState(state) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    let activeMessages = [];
+    let isWallLocked = false;
+
+    // Listen to real-time updates from Firebase
+    db.ref('nook_wall').on('value', (snapshot) => {
+      const data = snapshot.val() || {};
+      const msgData = data.messages || {};
+      isWallLocked = !!data.isLocked;
+
+      activeMessages = Object.keys(msgData).map(key => ({
+        id: key,
+        ...msgData[key]
+      })).sort((a, b) => b.createdAt - a.createdAt);
+
       renderAdmin();
-    }
+    });
 
     function toggleLock() {
-      const state = getState();
-      state.isLocked = !state.isLocked;
-      saveState(state);
+      db.ref('nook_wall/isLocked').set(!isWallLocked);
     }
 
     function deleteMessage(id) {
-      const state = getState();
-      state.messages = state.messages.filter(m => m.id !== id);
-      saveState(state);
+      db.ref(`nook_wall/messages/${id}`).remove();
     }
 
     function clearAllMessages() {
       if (confirm('Are you sure you want to delete all posts from the classroom wall?')) {
-        const state = getState();
-        state.messages = [];
-        saveState(state);
+        db.ref('nook_wall/messages').remove();
       }
-    }
-
-    function saveCustomUrl() {
-      const state = getState();
-      const url = document.getElementById('custom-url-input').value.trim();
-      state.customUrl = url;
-      saveState(state);
-      alert('Custom URL saved! QR codes will now generate using this URL.');
     }
 
     function renderAdmin() {
-      const state = getState();
-
-      // Lock button state
+      // Update Lock Button state
       const lockBtn = document.getElementById('toggle-lock-btn');
       const lockLabel = document.getElementById('lock-status-label');
-      if (state.isLocked) {
-        lockBtn.textContent = '🔒 Locked';
-        lockBtn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-rose-600 hover:bg-rose-500 text-white shadow';
-        lockLabel.textContent = 'Submissions closed';
+      if (isWallLocked) {
+        if (lockBtn) {
+          lockBtn.textContent = '🔒 Locked';
+          lockBtn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-rose-600 hover:bg-rose-500 text-white shadow';
+        }
+        if (lockLabel) lockLabel.textContent = 'Submissions closed';
       } else {
-        lockBtn.textContent = '🔓 Unlocked';
-        lockBtn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600 hover:bg-emerald-500 text-white shadow';
-        lockLabel.textContent = 'Accepting posts';
-      }
-
-      // URL Input
-      const urlInput = document.getElementById('custom-url-input');
-      if (urlInput && !urlInput.value && state.customUrl) {
-        urlInput.value = state.customUrl;
+        if (lockBtn) {
+          lockBtn.textContent = '🔓 Unlocked';
+          lockBtn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600 hover:bg-emerald-500 text-white shadow';
+        }
+        if (lockLabel) lockLabel.textContent = 'Accepting posts';
       }
 
       // Messages list
       const list = document.getElementById('admin-messages-list');
       const count = document.getElementById('msg-count');
-      if (count) count.textContent = state.messages.length;
+      if (count) count.textContent = activeMessages.length;
 
       if (!list) return;
 
-      if (state.messages.length === 0) {
+      if (activeMessages.length === 0) {
         list.innerHTML = `
           <div class="text-center py-8 text-slate-500 text-xs">
             No active posts on the wall right now.
@@ -156,7 +144,7 @@
         return;
       }
 
-      list.innerHTML = state.messages.map(m => `
+      list.innerHTML = activeMessages.map(m => `
         <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 flex items-start justify-between gap-4">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1">
@@ -166,7 +154,7 @@
             </div>
             <p class="text-xs text-slate-200 break-words">${escapeHtml(m.text)}</p>
           </div>
-          <button onclick="deleteMessage(${m.id})" class="bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white px-3 py-1.5 rounded-xl text-xs font-bold transition border border-rose-500/30">
+          <button onclick="deleteMessage('${m.id}')" class="bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white px-3 py-1.5 rounded-xl text-xs font-bold transition border border-rose-500/30">
             Delete ✕
           </button>
         </div>
@@ -176,9 +164,6 @@
     function escapeHtml(str) {
       return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
-
-    document.addEventListener('DOMContentLoaded', renderAdmin);
-    window.addEventListener('storage', renderAdmin);
   </script>
 </body>
 </html>

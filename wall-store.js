@@ -42,6 +42,7 @@
     requireApproval: false,
     showSamples: true,
     prompt: 'What made you smile in class today?',
+    joinUrl: '',
     bannedWords: 'stupid, idiot, dumb, hate you, shut up, loser, ugly, غبي, اسكت, حمار',
     pinHash: hashPin(DEFAULT_PIN)
   };

@@ -21,11 +21,15 @@ NFC tag) and send a short note from their phone, in English or Arabic.
 - **Blocked words** (English and Arabic): messages containing them can't be sent, and older posts that
   contain them are flagged in red.
 - **Today's question**: shown on the chalkboard and on students' phones.
+- **Student link**: the address the QR code points to. Leave it empty to use the live site
+  (`https://lamiyayousuf-dot.github.io/classroom-wall/?join`).
 - **Sample messages**: fills a quiet wall with example notes. They're only shown on screen and never saved.
 - Once you've unlocked `admin.html` in a browser, the wall in that same browser shows a ✕ on every bubble
   so you can remove a message straight from the projector.
 
 Students can send one message every 15 seconds. Messages disappear after 30 minutes.
+
+The QR code is drawn in the page by `qrcode.js` (MIT, Kazuhiko Arase), so it works without any outside QR service.
 
 ## Live sync
 

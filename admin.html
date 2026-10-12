@@ -100,6 +100,16 @@
       </div>
     </div>
 
+    <!-- Student link -->
+    <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-4 mb-3">
+      <label for="join-url-input" class="block text-xs font-bold text-slate-300 mb-1">Student link (used by the QR code)</label>
+      <p class="text-[11px] text-slate-500 mb-2">Leave empty to use your live site. Put the same link on your NFC tags.</p>
+      <div class="flex gap-2">
+        <input type="url" id="join-url-input" placeholder="https://lamiyayousuf-dot.github.io/classroom-wall/" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+        <button onclick="saveJoinUrl()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition">Save</button>
+      </div>
+    </div>
+
     <!-- Blocked words -->
     <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-4 mb-3">
       <label for="banned-input" class="block text-xs font-bold text-slate-300 mb-1">Blocked words</label>
@@ -198,7 +208,11 @@
       WallStore.updateSettings({ prompt: document.getElementById('prompt-input').value.trim() })
         .then(() => showToast("Today's question saved"));
     }
-    function saveBanned() {
+    function saveJoinUrl() {
+      WallStore.updateSettings({ joinUrl: document.getElementById('join-url-input').value.trim() })
+        .then(() => showToast('Student link saved'));
+    }
+        function saveBanned() {
       WallStore.updateSettings({ bannedWords: document.getElementById('banned-input').value })
         .then(() => showToast('Blocked words saved'));
     }
@@ -262,6 +276,8 @@
 
       const promptInput = document.getElementById('prompt-input');
       if (document.activeElement !== promptInput) promptInput.value = settings.prompt || '';
+      const joinInput = document.getElementById('join-url-input');
+      if (document.activeElement !== joinInput) joinInput.value = settings.joinUrl || '';
       const bannedInput = document.getElementById('banned-input');
       if (document.activeElement !== bannedInput) bannedInput.value = settings.bannedWords || '';
 

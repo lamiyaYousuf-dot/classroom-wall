@@ -4,7 +4,7 @@
 // localStorage so the demo still works across tabs in one browser.
 (function () {
   const FIREBASE_CONFIG = {
-    databaseURL: "https://nook-classroom-wall-default-rtdb.firebaseio.com"
+    databaseURL: "https://classroom-wall-73f88-default-rtdb.firebaseio.com"
   };
   const ROOT = 'nook_wall';
   const LOCAL_KEY = 'nook_wall_local_v3';

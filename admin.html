@@ -53,7 +53,9 @@
     </div>
 
     <div id="local-warning" class="hidden mb-6 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs leading-relaxed">
-      ⚠️ Live sync isn't connected, so the wall is running in <b>this browser only</b>. Students on other phones won't appear until the Firebase database is reachable (see README).
+      <p>⚠️ <b>Live sync isn't connected.</b> Messages from students' phones won't reach the wall.</p>
+      <p id="local-reason" class="mt-1.5"></p>
+      <p class="mt-1.5 text-amber-200/70">Database: <code id="db-url" class="break-all"></code></p>
     </div>
 
     <!-- Controls -->
@@ -268,6 +270,12 @@
       chip.textContent = mode === 'live' ? '● Live sync' : '● This browser only';
       chip.className = 'text-[10px] font-bold px-2.5 py-0.5 rounded-full ' + (mode === 'live' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300');
       document.getElementById('local-warning').classList.toggle('hidden', mode === 'live');
+      document.getElementById('db-url').textContent = WallStore.databaseUrl;
+      document.getElementById('local-reason').textContent = {
+        sdk: "Firebase couldn't load. This network may be blocking gstatic.com; try another network.",
+        timeout: "The database didn't answer. Check the database exists in your Firebase project and its URL matches the one below, or try another network.",
+        denied: "The database refused access. In Firebase console → Realtime Database → Rules, allow read and write on nook_wall (see database.rules.json in the repo)."
+      }[WallStore.getProblem()] || '';
 
       setSwitch('sw-open', !settings.isLocked);
       setSwitch('sw-approval', !!settings.requireApproval);

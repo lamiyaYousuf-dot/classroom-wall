@@ -37,6 +37,18 @@ Messages sync through Firebase Realtime Database (`wall-store.js`, `FIREBASE_CON
 be reached, the wall falls back to this browser only (handy for trying it out) and the teacher page
 shows a warning.
 
+The wall footer shows **● Live** when phones and the screen are connected. If it says
+**● Not connected**, open the teacher page: it explains why.
+
+### Setting up the database (one time)
+
+1. Go to <https://console.firebase.google.com> and open (or create) your project.
+2. **Build → Realtime Database → Create database**. Pick a location and start in **test mode**.
+3. Copy the database URL shown at the top of the Data tab (e.g. `https://my-project-default-rtdb.firebaseio.com`
+   or `https://my-project-default-rtdb.europe-west1.firebasedatabase.app`).
+4. Put that URL in `wall-store.js` as `databaseURL`.
+5. Under **Rules**, paste the contents of `database.rules.json` and click **Publish**.
+
 `database.rules.json` has suggested rules that limit message size and shape. Paste them into
 Firebase console → Realtime Database → Rules.
 

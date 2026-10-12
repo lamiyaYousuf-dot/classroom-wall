@@ -51,10 +51,13 @@
   let fbRef = null;
   let messages = [];
   let settings = { ...DEFAULT_SETTINGS };
+  // Why the wall isn't live: 'sdk' (Firebase scripts blocked), 'timeout' (database never
+  // answered: wrong URL, not created, or network) or 'denied' (database rules refuse access).
+  let problem = null;
   const listeners = [];
 
   function snapshot() {
-    return { messages: messages.slice(), settings: { ...settings }, mode };
+    return { messages: messages.slice(), settings: { ...settings }, mode, problem };
   }
 
   function emit() {
@@ -83,14 +86,14 @@
     emit();
   }
 
-  function startLocal() {
-    if (mode === 'local') return;
-    if (fbRef) fbRef.off();
+  function startLocal(reason) {
+    problem = reason;
+    if (mode === 'local') { emit(); return; }
     mode = 'local';
     normalize(readLocal());
     emit();
     window.addEventListener('storage', e => {
-      if (e.key === LOCAL_KEY) { normalize(readLocal()); emit(); }
+      if (mode === 'local' && e.key === LOCAL_KEY) { normalize(readLocal()); emit(); }
     });
   }
 
@@ -101,19 +104,22 @@
       if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       fbRef = firebase.database().ref(ROOT);
     } catch (e) {
-      startLocal();
+      startLocal('sdk');
       return;
     }
-    const timer = setTimeout(() => { if (mode === 'connecting') startLocal(); }, CONNECT_TIMEOUT_MS);
+    // On a slow network, show the local wall after a few seconds but keep listening:
+    // if Firebase answers later, switch over to the live wall.
+    const timer = setTimeout(() => { if (mode === 'connecting') startLocal('timeout'); }, CONNECT_TIMEOUT_MS);
     fbRef.on('value', snap => {
-      if (mode === 'local') return;
       clearTimeout(timer);
       mode = 'live';
+      problem = null;
       normalize(snap.val());
       emit();
-    }, () => {
+    }, err => {
       clearTimeout(timer);
-      startLocal();
+      console.error('Classroom wall: Firebase refused access', err);
+      startLocal('denied');
     });
   }
 
@@ -219,6 +225,8 @@
     EXPIRATION_MS,
     subscribe(fn) { listeners.push(fn); if (mode !== 'connecting') fn(snapshot()); },
     getMode: () => mode,
+    getProblem: () => problem,
+    databaseUrl: FIREBASE_CONFIG.databaseURL,
     addMessage, heart, remove, approve, clearAll, updateSettings, removeExpired,
     findBannedWord, hashPin, isAdminHere, setAdminHere, escapeHtml, character
   };

@@ -189,6 +189,7 @@
         <div class="flex items-center gap-1">
           <button onclick="setFilter('all')" id="filter-all" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500 text-slate-950">Newest</button>
           <button onclick="setFilter('popular')" id="filter-popular" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/10 text-white hover:bg-white/20">🔥 Popular</button>
+          <span id="sync-chip" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/10 text-amber-100/70">Connecting…</span>
           <a href="admin.html" title="Teacher controls" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/10 text-white hover:bg-white/20">⚙︎</a>
         </div>
       </div>
@@ -215,6 +216,7 @@
           <div id="locked-notice" class="hidden mt-4 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-center text-xs font-bold">
             🔒 The wall is closed right now. Your teacher will open it soon.
           </div>
+          <div id="offline-notice" class="hidden mt-3 p-2.5 bg-amber-50 border border-amber-300 text-amber-800 rounded-xl text-center text-[11px] font-medium"></div>
           <div id="approval-notice" class="hidden mt-3 p-2.5 bg-sky-50 border border-sky-200 text-sky-700 rounded-xl text-center text-[11px] font-medium">
             👀 Your teacher checks each message before it goes on the wall.
           </div>
@@ -390,10 +392,35 @@
       document.getElementById('board-prompt').textContent = settings.prompt || 'Leave a little good energy ✨';
     }
 
+    function applyConnectionStatus(mode, problem) {
+      const chip = document.getElementById('sync-chip');
+      const live = mode === 'live';
+      chip.textContent = live ? '● Live' : '● Not connected';
+      chip.className = 'px-2 py-0.5 rounded-lg text-[10px] font-bold ' + (live ? 'bg-emerald-500/25 text-emerald-200' : 'bg-rose-500/30 text-rose-100');
+      chip.title = live ? 'Phones and this screen are connected' : 'Messages from phones will not appear here. Open the teacher page for details.';
+
+      const notice = document.getElementById('offline-notice');
+      const showNotice = !live && document.body.classList.contains('mode-join');
+      notice.textContent = "⚠️ Can't reach the class wall right now. Messages can't be sent. Please tell your teacher.";
+      notice.classList.toggle('hidden', !showNotice);
+    }
+
     function submitMessage(e) {
       e.preventDefault();
       if (settings.isLocked) return;
       showFormError('');
+
+      const mode = WallStore.getMode();
+      if (mode === 'connecting') {
+        showFormError('Connecting to the class wall… try again in a moment.');
+        return;
+      }
+      // A student's phone must reach the shared wall, otherwise the message would only
+      // be saved on that phone. The side-by-side demo view still works offline.
+      if (mode !== 'live' && document.body.classList.contains('mode-join')) {
+        showFormError("Can't reach the class wall, so your message wasn't sent. Please tell your teacher.");
+        return;
+      }
 
       const name = document.getElementById('user-name').value.trim();
       const text = document.getElementById('user-text').value.trim();
@@ -424,7 +451,12 @@
         document.getElementById('user-text').value = '';
         document.getElementById('char-counter').textContent = '0';
         showToast(pending ? 'Sent! Your teacher will check it first 👀' : 'Sent to the wall! 🎉');
-      }).catch(() => showFormError('Could not send. Please try again.'));
+      }).catch(err => {
+        console.error('Classroom wall: send failed', err);
+        showFormError(/permission/i.test(String(err && (err.code || err.message)))
+          ? "The class wall isn't accepting messages (database permission). Please tell your teacher."
+          : 'Could not send. Please try again.');
+      });
     }
 
     // ---------- Sample messages (shown on this screen only, never saved) ----------
@@ -595,6 +627,7 @@
       WallStore.subscribe(snap => {
         realMessages = snap.messages;
         settings = snap.settings;
+        applyConnectionStatus(snap.mode, snap.problem);
         applySettingsToForm();
         updateQrCodeImages();
         renderWall();

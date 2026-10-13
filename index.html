@@ -84,7 +84,7 @@
     .latest-tag { position: absolute; top: -10px; left: 8px; background: #E11D48; color: #fff; font-size: 9px; font-weight: 700; padding: 1px 8px; border-radius: 999px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
     .del-btn { position: absolute; top: -9px; right: -9px; width: 22px; height: 22px; border-radius: 999px; background: #1F2937; color: #fff; font-size: 11px; line-height: 22px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
     .del-btn:hover { background: #E11D48; }
-    .avatar { font-size: 34px; margin-top: 10px; line-height: 1; cursor: pointer; user-select: none; }
+    .avatar { font-size: 44px; margin-top: 10px; line-height: 1; cursor: pointer; user-select: none; }
     .shadow-blob { width: 34px; height: 7px; background: rgba(60, 30, 10, 0.22); border-radius: 50%; margin-top: 2px; }
 
     /* ---------- Phone ---------- */
@@ -297,14 +297,14 @@
 
     const SAMPLES = [
       { name: 'Sara', text: 'Group work today was so much fun!', charId: 'bunny' },
-      { name: 'Omar', text: 'Finally understood fractions 🎉', charId: 'robot' },
+      { name: 'Omar', text: 'Finally understood fractions 🎉', charId: 'bear' },
       { name: 'ليان', text: 'شكراً أستاذة على الدرس الجميل 💛', charId: 'cat' },
       { name: 'Yousef', text: 'Can we do the science experiment again?', charId: 'frog' },
       { name: 'Maya', text: 'Reading corner is my favourite place', charId: 'owl' },
-      { name: 'حمدان', text: 'اليوم تعلمت شي جديد عن الفضاء 🚀', charId: 'camel' },
+      { name: 'حمدان', text: 'اليوم تعلمت شي جديد عن الفضاء 🚀', charId: 'penguin' },
       { name: 'Noor', text: 'Have a great weekend everyone!', charId: 'panda' },
       { name: 'Adam', text: 'The quiz was easier than I thought 😅', charId: 'fox' },
-      { name: 'مريم', text: 'أحب حصة الرسم ✏️', charId: 'duck' }
+      { name: 'مريم', text: 'أحب حصة الرسم ✏️', charId: 'chick' }
     ];
 
     let selectedCharId = 'bunny';
@@ -358,7 +358,7 @@
       document.getElementById('character-grid').innerHTML = WallStore.CHARACTERS.map(c => `
         <button type="button" data-char="${c.id}" aria-pressed="${selectedCharId === c.id}" class="relative p-2 rounded-xl border flex flex-col items-center gap-1 transition ${selectedCharId === c.id ? 'bg-[#FFE9DF] border-[#E4572E] text-[#9A3412] font-bold' : 'bg-white border-[#EADBC3] text-slate-600 hover:bg-[#FFF1E6]'}">
           ${selectedCharId === c.id ? '<span class="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#E4572E] text-white text-[9px] leading-4">✓</span>' : ''}
-          <span class="text-2xl">${c.icon}</span>
+          <span class="text-[32px] leading-none">${c.icon}</span>
           <span class="text-[10px] leading-tight truncate w-full text-center">${c.name}</span>
         </button>
       `).join('');

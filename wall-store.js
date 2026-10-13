@@ -13,16 +13,81 @@
   const EXPIRATION_MS = 30 * 60 * 1000;
   const DEFAULT_PIN = '1234';
 
+  // Cute animal faces drawn as inline SVG, so they look the same on every phone
+  // (emoji differ between iPhone, Android and Windows). Sized with font-size (1em).
+  const INK = '#3B2A20';
+  const svg = body => `<svg viewBox="0 0 64 64" width="1em" height="1em" aria-hidden="true" style="display:inline-block;vertical-align:middle;overflow:visible">${body}</svg>`;
+  const eyes = (y = 36, dx = 7) =>
+    `<circle cx="${32 - dx}" cy="${y}" r="2.7" fill="${INK}"/><circle cx="${32 + dx}" cy="${y}" r="2.7" fill="${INK}"/>` +
+    `<circle cx="${31.1 - dx}" cy="${y - 1}" r="0.95" fill="#fff"/><circle cx="${31.1 + dx}" cy="${y - 1}" r="0.95" fill="#fff"/>`;
+  const sleepyEyes = (y = 36, dx = 7) =>
+    `<path d="M${28.5 - dx} ${y} q3.5 3 7 0 M${28.5 + dx} ${y} q3.5 3 7 0" stroke="${INK}" stroke-width="1.8" fill="none" stroke-linecap="round"/>`;
+  const blush = (y = 42, dx = 11) =>
+    `<ellipse cx="${32 - dx}" cy="${y}" rx="3.4" ry="2.1" fill="#FF9EB5" opacity="0.75"/><ellipse cx="${32 + dx}" cy="${y}" rx="3.4" ry="2.1" fill="#FF9EB5" opacity="0.75"/>`;
+  const smile = (y = 41) =>
+    `<path d="M29.4 ${y} q1.3 1.7 2.6 0 q1.3 1.7 2.6 0" stroke="${INK}" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+
   const CHARACTERS = [
-    { id: 'bunny', name: 'Bunny', icon: '🐰' },
-    { id: 'robot', name: 'Robot', icon: '🤖' },
-    { id: 'fox', name: 'Sleepy Fox', icon: '🦊' },
-    { id: 'cat', name: 'Cool Cat', icon: '🐱' },
-    { id: 'duck', name: 'Duck', icon: '🦆' },
-    { id: 'frog', name: 'Matcha Frog', icon: '🐸' },
-    { id: 'panda', name: 'Happy Panda', icon: '🐼' },
-    { id: 'owl', name: 'Wise Owl', icon: '🦉' },
-    { id: 'camel', name: 'Speedy Camel', icon: '🐪' }
+    { id: 'bunny', name: 'Bunny', icon: svg(
+      `<ellipse cx="23" cy="15" rx="5.8" ry="13" fill="#FFF7F3" stroke="#EBD9D1" stroke-width="1.5"/>` +
+      `<ellipse cx="41" cy="15" rx="5.8" ry="13" fill="#FFF7F3" stroke="#EBD9D1" stroke-width="1.5"/>` +
+      `<ellipse cx="23" cy="16" rx="2.6" ry="9" fill="#FFC4D3"/><ellipse cx="41" cy="16" rx="2.6" ry="9" fill="#FFC4D3"/>` +
+      `<circle cx="32" cy="38" r="19" fill="#FFF7F3" stroke="#EBD9D1" stroke-width="1.5"/>` +
+      eyes(37) + blush(43) + `<ellipse cx="32" cy="41" rx="1.6" ry="1.1" fill="#FF8FAB"/>` + smile(42.5)) },
+    { id: 'bear', name: 'Teddy Bear', icon: svg(
+      `<circle cx="16" cy="21" r="7.5" fill="#C98B5A"/><circle cx="48" cy="21" r="7.5" fill="#C98B5A"/>` +
+      `<circle cx="16" cy="21" r="3.8" fill="#EDBB91"/><circle cx="48" cy="21" r="3.8" fill="#EDBB91"/>` +
+      `<circle cx="32" cy="36" r="20" fill="#C98B5A"/>` +
+      `<ellipse cx="32" cy="43" rx="8" ry="6" fill="#F3D5B5"/>` + eyes(34) + blush(41, 12.5) +
+      `<ellipse cx="32" cy="40.5" rx="2.6" ry="1.8" fill="${INK}"/>` + smile(43.5)) },
+    { id: 'fox', name: 'Sleepy Fox', icon: svg(
+      `<path d="M13 28 L16 7 L30 19 Z" fill="#F08A3C"/><path d="M51 28 L48 7 L34 19 Z" fill="#F08A3C"/>` +
+      `<path d="M17 23 L18.5 12 L26 19 Z" fill="#FFE3CC"/><path d="M47 23 L45.5 12 L38 19 Z" fill="#FFE3CC"/>` +
+      `<circle cx="32" cy="37" r="19.5" fill="#F08A3C"/>` +
+      `<path d="M13 39 Q22 36 32 47 Q42 36 51 39 Q48 56 32 56.5 Q16 56 13 39 Z" fill="#FFF5EC"/>` +
+      sleepyEyes(35) + blush(41, 12.5) + `<ellipse cx="32" cy="45" rx="2.3" ry="1.6" fill="${INK}"/>`) },
+    { id: 'cat', name: 'Cool Cat', icon: svg(
+      `<path d="M13 30 L15 8 L29 19 Z" fill="#F5B971"/><path d="M51 30 L49 8 L35 19 Z" fill="#F5B971"/>` +
+      `<path d="M17 24 L18 14 L25 19.5 Z" fill="#FFD6DE"/><path d="M47 24 L46 14 L39 19.5 Z" fill="#FFD6DE"/>` +
+      `<circle cx="32" cy="37" r="19.5" fill="#F5B971"/>` +
+      `<path d="M27 21 l2 5 M32 19.5 v5.5 M37 21 l-2 5" stroke="#E39A4A" stroke-width="2" stroke-linecap="round"/>` +
+      `<rect x="18.5" y="31" width="11" height="8" rx="4" fill="${INK}"/><rect x="34.5" y="31" width="11" height="8" rx="4" fill="${INK}"/>` +
+      `<path d="M29.5 34 h5" stroke="${INK}" stroke-width="2"/><path d="M21 33 l3 -1" stroke="#fff" stroke-width="1.3" stroke-linecap="round" opacity="0.8"/><path d="M37 33 l3 -1" stroke="#fff" stroke-width="1.3" stroke-linecap="round" opacity="0.8"/>` +
+      blush(44, 12) + `<path d="M30.4 42 h3.2 l-1.6 1.8 Z" fill="#FF8FAB"/>` + smile(44.5) +
+      `<path d="M10 41 h7 M10.5 45 l6.5 -1.5 M54 41 h-7 M53.5 45 l-6.5 -1.5" stroke="#B9814A" stroke-width="1.2" stroke-linecap="round"/>`) },
+    { id: 'chick', name: 'Little Chick', icon: svg(
+      `<path d="M30 17 q-2 -8 3 -10 q-1 5 3 7 q2 -4 6 -3 q-4 3 -4 7" fill="#FFC93C"/>` +
+      `<circle cx="32" cy="37" r="20" fill="#FFD84D"/>` + eyes(34) + blush(41, 12) +
+      `<path d="M27.5 39.5 Q32 37 36.5 39.5 Q32 45 27.5 39.5 Z" fill="#FF9A3C"/>` +
+      `<path d="M13 44 q-5 -3 -4 -9 q5 2 6 6" fill="#FFC93C"/><path d="M51 44 q5 -3 4 -9 q-5 2 -6 6" fill="#FFC93C"/>`) },
+    { id: 'frog', name: 'Matcha Frog', icon: svg(
+      `<circle cx="21" cy="22" r="9" fill="#8DCB72"/><circle cx="43" cy="22" r="9" fill="#8DCB72"/>` +
+      `<ellipse cx="32" cy="40" rx="22" ry="17" fill="#8DCB72"/>` +
+      `<circle cx="21" cy="22" r="5.5" fill="#fff"/><circle cx="43" cy="22" r="5.5" fill="#fff"/>` +
+      `<circle cx="21.5" cy="23" r="3" fill="${INK}"/><circle cx="43.5" cy="23" r="3" fill="${INK}"/>` +
+      `<circle cx="20.6" cy="21.8" r="1" fill="#fff"/><circle cx="42.6" cy="21.8" r="1" fill="#fff"/>` +
+      blush(41, 13.5) + `<path d="M24 41 Q32 49 40 41" stroke="${INK}" stroke-width="1.8" fill="none" stroke-linecap="round"/>` +
+      `<ellipse cx="32" cy="50" rx="9" ry="3" fill="#B4E09E" opacity="0.7"/>`) },
+    { id: 'panda', name: 'Happy Panda', icon: svg(
+      `<circle cx="15.5" cy="20" r="7.5" fill="${INK}"/><circle cx="48.5" cy="20" r="7.5" fill="${INK}"/>` +
+      `<circle cx="32" cy="37" r="20" fill="#FFFFFF" stroke="#E5E1DC" stroke-width="1.5"/>` +
+      `<ellipse cx="24" cy="35" rx="5" ry="6.5" fill="${INK}" transform="rotate(25 24 35)"/><ellipse cx="40" cy="35" rx="5" ry="6.5" fill="${INK}" transform="rotate(-25 40 35)"/>` +
+      `<circle cx="24.5" cy="34.5" r="2" fill="#fff"/><circle cx="39.5" cy="34.5" r="2" fill="#fff"/>` +
+      blush(44, 12.5) + `<ellipse cx="32" cy="42" rx="2.4" ry="1.6" fill="${INK}"/>` + smile(44)) },
+    { id: 'owl', name: 'Wise Owl', icon: svg(
+      `<path d="M14 22 L16 8 L25 17 Z" fill="#A47A55"/><path d="M50 22 L48 8 L39 17 Z" fill="#A47A55"/>` +
+      `<ellipse cx="32" cy="37" rx="20" ry="20" fill="#A47A55"/>` +
+      `<path d="M18 44 Q32 62 46 44 Q32 52 18 44 Z" fill="#E8CFAE"/>` +
+      `<circle cx="24" cy="32" r="8" fill="#FFF8EC"/><circle cx="40" cy="32" r="8" fill="#FFF8EC"/>` +
+      `<circle cx="24.5" cy="32.5" r="4" fill="${INK}"/><circle cx="39.5" cy="32.5" r="4" fill="${INK}"/>` +
+      `<circle cx="23.2" cy="31" r="1.4" fill="#fff"/><circle cx="38.2" cy="31" r="1.4" fill="#fff"/>` +
+      `<path d="M29.5 38 h5 l-2.5 4 Z" fill="#F2A33A"/>` + blush(42, 15)) },
+    { id: 'penguin', name: 'Penguin', icon: svg(
+      `<circle cx="32" cy="36" r="21" fill="#34445F"/>` +
+      `<path d="M32 22 Q22 18 18 28 Q14 40 22 49 Q32 56 42 49 Q50 40 46 28 Q42 18 32 22 Z" fill="#FFFFFF"/>` +
+      eyes(34, 6.5) + blush(41, 11) +
+      `<path d="M28.5 38.5 Q32 36.5 35.5 38.5 L32 42.5 Z" fill="#FFA63D"/>` +
+      `<path d="M23 15 q9 -7 18 0" stroke="#5B9BD5" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="32" cy="10" r="3" fill="#FF8FAB"/>`) }
   ];
 
   // Small, non-cryptographic hash. The PIN is only a speed bump to keep
@@ -214,7 +279,11 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  // Characters that were renamed, so older messages keep a matching animal.
+  const OLD_IDS = { robot: 'bear', duck: 'chick', camel: 'penguin' };
+
   function character(id) {
+    id = OLD_IDS[id] || id;
     return CHARACTERS.find(c => c.id === id) || CHARACTERS[0];
   }
 

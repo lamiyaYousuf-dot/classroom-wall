@@ -235,7 +235,7 @@
       const flagged = WallStore.findBannedWord(m.name + ' ' + m.text, settings);
       return `
         <div class="bg-slate-800/80 border ${flagged ? 'border-rose-500/70' : 'border-slate-700/80'} rounded-2xl p-4 flex items-start justify-between gap-3">
-          <div class="text-2xl leading-none pt-0.5">${ch.icon}</div>
+          <div class="text-[36px] leading-none">${ch.icon}</div>
           <div class="flex-1 min-w-0">
             <div class="flex flex-wrap items-center gap-2 mb-1">
               <span dir="auto" class="font-bold text-xs text-amber-300 truncate">${esc(m.name)}</span>

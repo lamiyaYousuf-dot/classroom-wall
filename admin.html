@@ -4,166 +4,311 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nook Wall - Teacher Admin</title>
+  <meta name="robots" content="noindex">
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Firebase SDKs for Realtime Sync -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="wall-store.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Fredoka', 'Tajawal', sans-serif; background-color: #0F172A; }
+    .switch { width: 44px; height: 24px; border-radius: 999px; position: relative; transition: background 0.2s; flex-shrink: 0; }
+    .switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 999px; background: #fff; transition: transform 0.2s; }
+    .switch[aria-checked="true"]::after { transform: translateX(20px); }
   </style>
 </head>
 <body class="min-h-screen text-slate-100 p-4 sm:p-8 flex justify-center items-start">
 
+  <!-- PIN GATE -->
+  <div id="pin-gate" class="fixed inset-0 z-50 bg-slate-950 flex items-center justify-center p-4">
+    <form id="pin-form" class="w-full max-w-xs bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center shadow-2xl">
+      <div class="text-3xl mb-2">🍎</div>
+      <h1 class="text-lg font-bold text-white">Teacher controls</h1>
+      <p class="text-xs text-slate-400 mt-1 mb-4">Enter your PIN to moderate the classroom wall.</p>
+      <input id="pin-input" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" class="w-full text-center tracking-[0.4em] bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-lg text-white focus:outline-none focus:border-amber-500">
+      <p id="pin-error" class="hidden text-xs text-rose-400 mt-2">Wrong PIN. Try again.</p>
+      <p id="pin-default-hint" class="hidden text-[11px] text-amber-300/80 mt-3">First time? The default PIN is <b>1234</b>. Change it once you're in.</p>
+      <button class="mt-4 w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl text-sm transition">Unlock</button>
+      <a href="index.html" class="block mt-3 text-xs text-slate-500 hover:text-slate-300">← Back to the wall</a>
+    </form>
+  </div>
+
   <div class="w-full max-w-3xl bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
-    
+
     <!-- Header -->
-    <div class="flex items-center justify-between pb-6 border-b border-slate-800 mb-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-6 border-b border-slate-800 mb-6">
       <div>
         <div class="flex items-center gap-2 mb-1">
           <span class="text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full uppercase">MODERATION PANEL</span>
+          <span id="mode-chip" class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400">Connecting…</span>
         </div>
         <h1 class="text-2xl font-bold text-white">Classroom Wall Controls</h1>
       </div>
-      <a href="index.html" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl transition">← Open Wall</a>
+      <div class="flex items-center gap-2">
+        <a href="index.html?screen" target="_blank" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl transition">📽 Projector view</a>
+        <a href="index.html" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl transition">← Open Wall</a>
+        <button onclick="lockAdmin()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl transition" title="Sign out of teacher controls">🔐</button>
+      </div>
     </div>
 
-    <!-- Controls Box -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-      
-      <!-- Lock Toggle -->
-      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 flex items-center justify-between">
+    <div id="local-warning" class="hidden mb-6 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs leading-relaxed">
+      <p>⚠️ <b>Live sync isn't connected.</b> Messages from students' phones won't reach the wall.</p>
+      <p id="local-reason" class="mt-1.5"></p>
+      <p class="mt-1.5 text-amber-200/70">Database: <code id="db-url" class="break-all"></code></p>
+    </div>
+
+    <!-- Controls -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 flex items-center justify-between gap-3">
         <div>
-          <h3 class="text-sm font-bold text-white">Wall Submissions</h3>
+          <h3 class="text-sm font-bold text-white">Wall open</h3>
           <p class="text-xs text-slate-400 mt-0.5" id="lock-status-label">Accepting posts</p>
         </div>
-        <button id="toggle-lock-btn" onclick="toggleLock()" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600 hover:bg-emerald-500 text-white shadow">
-          Unlocked
-        </button>
+        <button id="sw-open" class="switch" role="switch" aria-checked="true" onclick="toggleSetting('isLocked')" aria-label="Wall open"></button>
       </div>
 
-      <!-- Clear Board -->
-      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 flex items-center justify-between">
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 flex items-center justify-between gap-3">
         <div>
-          <h3 class="text-sm font-bold text-white">Clear Wall</h3>
-          <p class="text-xs text-slate-400 mt-0.5">Remove all active posts</p>
+          <h3 class="text-sm font-bold text-white">Review before posting</h3>
+          <p class="text-xs text-slate-400 mt-0.5">New messages wait for your OK</p>
         </div>
-        <button onclick="clearAllMessages()" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-rose-600/80 hover:bg-rose-600 text-white shadow">
-          Clear All
-        </button>
+        <button id="sw-approval" class="switch" role="switch" aria-checked="false" onclick="toggleSetting('requireApproval')" aria-label="Review before posting"></button>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 flex items-center justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-bold text-white">Sample messages</h3>
+          <p class="text-xs text-slate-400 mt-0.5">Fill the wall when it's quiet</p>
+        </div>
+        <button id="sw-samples" class="switch" role="switch" aria-checked="true" onclick="toggleSetting('showSamples')" aria-label="Sample messages"></button>
+      </div>
+
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 flex items-center justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-bold text-white">Clear wall</h3>
+          <p class="text-xs text-slate-400 mt-0.5">Delete every post</p>
+        </div>
+        <button onclick="clearAllMessages()" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-rose-600/80 hover:bg-rose-600 text-white shadow">Clear all</button>
       </div>
     </div>
 
-    <!-- Active Messages List -->
+    <!-- Today's question -->
+    <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-4 mb-3">
+      <label for="prompt-input" class="block text-xs font-bold text-slate-300 mb-1">Today's question (shown on the chalkboard and phones)</label>
+      <div class="flex gap-2">
+        <input type="text" id="prompt-input" dir="auto" maxlength="90" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+        <button onclick="savePrompt()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition">Save</button>
+      </div>
+    </div>
+
+    <!-- Student link -->
+    <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-4 mb-3">
+      <label for="join-url-input" class="block text-xs font-bold text-slate-300 mb-1">Student link (used by the QR code)</label>
+      <p class="text-[11px] text-slate-500 mb-2">Leave empty to use your live site. Put the same link on your NFC tags.</p>
+      <div class="flex gap-2">
+        <input type="url" id="join-url-input" placeholder="https://lamiyayousuf-dot.github.io/classroom-wall/" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+        <button onclick="saveJoinUrl()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition">Save</button>
+      </div>
+    </div>
+
+    <!-- Blocked words -->
+    <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-4 mb-3">
+      <label for="banned-input" class="block text-xs font-bold text-slate-300 mb-1">Blocked words</label>
+      <p class="text-[11px] text-slate-500 mb-2">Comma separated, English or Arabic. Messages containing these can't be sent, and older posts that contain them are flagged below.</p>
+      <div class="flex gap-2 items-start">
+        <textarea id="banned-input" dir="auto" rows="2" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 resize-y"></textarea>
+        <button onclick="saveBanned()" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition">Save</button>
+      </div>
+    </div>
+
+    <!-- PIN -->
+    <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-4 mb-8">
+      <label for="new-pin-input" class="block text-xs font-bold text-slate-300 mb-1">Change teacher PIN</label>
+      <div class="flex gap-2">
+        <input type="password" id="new-pin-input" inputmode="numeric" minlength="4" maxlength="12" placeholder="New PIN (4+ digits)" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+        <button onclick="savePin()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition">Update</button>
+      </div>
+      <p id="pin-default-warning" class="hidden text-[11px] text-amber-300/80 mt-2">You're still using the default PIN 1234. Please change it.</p>
+    </div>
+
+    <!-- Pending -->
+    <div id="pending-section" class="hidden mb-8">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-bold text-white">Waiting for review (<span id="pending-count">0</span>)</h2>
+        <button onclick="approveAll()" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-xl transition">Approve all</button>
+      </div>
+      <div id="pending-list" class="space-y-3"></div>
+    </div>
+
+    <!-- Live posts -->
     <div>
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-bold text-white">Active Posts (<span id="msg-count">0</span>)</h2>
-        <span class="text-xs text-slate-400">One-tap moderation</span>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-bold text-white">On the wall (<span id="msg-count">0</span>)</h2>
+        <span class="text-xs text-slate-400">Tap Delete to remove a bad comment</span>
       </div>
-
-      <div id="admin-messages-list" class="space-y-3">
-        <!-- Rendered dynamically -->
-      </div>
+      <div id="admin-messages-list" class="space-y-3"></div>
     </div>
-
   </div>
 
+  <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-white text-slate-900 text-sm font-medium px-4 py-2.5 rounded-xl shadow-2xl"></div>
+
   <script>
-    // Firebase Configuration
-    const firebaseConfig = {
-      databaseURL: "https://nook-classroom-wall-default-rtdb.firebaseio.com"
-    };
+    const esc = WallStore.escapeHtml;
+    let messages = [];
+    let settings = { ...WallStore.DEFAULT_SETTINGS };
+    let ready = false;
 
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
+    function showToast(text) {
+      const t = document.getElementById('toast');
+      t.textContent = text;
+      t.classList.remove('hidden');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => t.classList.add('hidden'), 2500);
     }
-    const db = firebase.database();
 
-    let activeMessages = [];
-    let isWallLocked = false;
+    // ---------- PIN gate ----------
+    function updateGate() {
+      const unlocked = WallStore.isAdminHere();
+      document.getElementById('pin-gate').classList.toggle('hidden', unlocked);
+      const isDefault = settings.pinHash === WallStore.hashPin(WallStore.DEFAULT_PIN);
+      document.getElementById('pin-default-hint').classList.toggle('hidden', !isDefault);
+      document.getElementById('pin-default-warning').classList.toggle('hidden', !isDefault);
+      if (!unlocked) setTimeout(() => document.getElementById('pin-input').focus(), 50);
+    }
 
-    // Listen to real-time updates from Firebase
-    db.ref('nook_wall').on('value', (snapshot) => {
-      const data = snapshot.val() || {};
-      const msgData = data.messages || {};
-      isWallLocked = !!data.isLocked;
-
-      activeMessages = Object.keys(msgData).map(key => ({
-        id: key,
-        ...msgData[key]
-      })).sort((a, b) => b.createdAt - a.createdAt);
-
-      renderAdmin();
+    document.getElementById('pin-form').addEventListener('submit', e => {
+      e.preventDefault();
+      if (!ready) return;
+      const input = document.getElementById('pin-input');
+      const ok = WallStore.hashPin(input.value.trim()) === settings.pinHash;
+      document.getElementById('pin-error').classList.toggle('hidden', ok);
+      if (ok) { WallStore.setAdminHere(true); input.value = ''; updateGate(); }
     });
 
-    function toggleLock() {
-      db.ref('nook_wall/isLocked').set(!isWallLocked);
+    function lockAdmin() { WallStore.setAdminHere(false); updateGate(); }
+
+    function savePin() {
+      const input = document.getElementById('new-pin-input');
+      const pin = input.value.trim();
+      if (pin.length < 4) { showToast('PIN must be at least 4 characters'); return; }
+      const pinHash = WallStore.hashPin(pin);
+      WallStore.updateSettings({ pinHash }).then(() => {
+        input.value = '';
+        // Stay signed in on this device with the new PIN.
+        settings.pinHash = pinHash;
+        WallStore.setAdminHere(true);
+        showToast('PIN updated');
+      });
     }
 
+    // ---------- Settings ----------
+    function toggleSetting(key) {
+      WallStore.updateSettings({ [key]: !settings[key] });
+    }
+    function savePrompt() {
+      WallStore.updateSettings({ prompt: document.getElementById('prompt-input').value.trim() })
+        .then(() => showToast("Today's question saved"));
+    }
+    function saveJoinUrl() {
+      WallStore.updateSettings({ joinUrl: document.getElementById('join-url-input').value.trim() })
+        .then(() => showToast('Student link saved'));
+    }
+        function saveBanned() {
+      WallStore.updateSettings({ bannedWords: document.getElementById('banned-input').value })
+        .then(() => showToast('Blocked words saved'));
+    }
+
+    // ---------- Messages ----------
     function deleteMessage(id) {
-      db.ref(`nook_wall/messages/${id}`).remove();
+      WallStore.remove(id).then(() => showToast('Message deleted'));
     }
-
     function clearAllMessages() {
-      if (confirm('Are you sure you want to delete all posts from the classroom wall?')) {
-        db.ref('nook_wall/messages').remove();
-      }
+      if (confirm('Delete ALL posts from the classroom wall?')) WallStore.clearAll();
+    }
+    function approveAll() {
+      messages.filter(m => m.status === 'pending').forEach(m => WallStore.approve(m.id));
     }
 
-    function renderAdmin() {
-      // Update Lock Button state
-      const lockBtn = document.getElementById('toggle-lock-btn');
-      const lockLabel = document.getElementById('lock-status-label');
-      if (isWallLocked) {
-        if (lockBtn) {
-          lockBtn.textContent = '🔒 Locked';
-          lockBtn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-rose-600 hover:bg-rose-500 text-white shadow';
-        }
-        if (lockLabel) lockLabel.textContent = 'Submissions closed';
-      } else {
-        if (lockBtn) {
-          lockBtn.textContent = '🔓 Unlocked';
-          lockBtn.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-600 hover:bg-emerald-500 text-white shadow';
-        }
-        if (lockLabel) lockLabel.textContent = 'Accepting posts';
-      }
-
-      // Messages list
-      const list = document.getElementById('admin-messages-list');
-      const count = document.getElementById('msg-count');
-      if (count) count.textContent = activeMessages.length;
-
-      if (!list) return;
-
-      if (activeMessages.length === 0) {
-        list.innerHTML = `
-          <div class="text-center py-8 text-slate-500 text-xs">
-            No active posts on the wall right now.
-          </div>
-        `;
-        return;
-      }
-
-      list.innerHTML = activeMessages.map(m => `
-        <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 flex items-start justify-between gap-4">
+    function messageRow(m, pending) {
+      const ch = WallStore.character(m.charId);
+      const flagged = WallStore.findBannedWord(m.name + ' ' + m.text, settings);
+      return `
+        <div class="bg-slate-800/80 border ${flagged ? 'border-rose-500/70' : 'border-slate-700/80'} rounded-2xl p-4 flex items-start justify-between gap-3">
+          <div class="text-2xl leading-none pt-0.5">${ch.icon}</div>
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="font-bold text-xs text-amber-300 truncate">${escapeHtml(m.name)}</span>
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <span dir="auto" class="font-bold text-xs text-amber-300 truncate">${esc(m.name)}</span>
               <span class="text-[10px] text-slate-500 font-mono">${new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              <span class="text-[10px] bg-rose-950/80 text-rose-300 px-2 py-0.5 rounded-full font-bold">❤️ ${m.hearts || 1}</span>
+              ${pending ? '' : `<span class="text-[10px] bg-rose-950/80 text-rose-300 px-2 py-0.5 rounded-full font-bold">♥ ${m.hearts || 0}</span>`}
+              ${flagged ? `<span class="text-[10px] bg-rose-600 text-white px-2 py-0.5 rounded-full font-bold">⚠ contains “${esc(flagged)}”</span>` : ''}
             </div>
-            <p class="text-xs text-slate-200 break-words">${escapeHtml(m.text)}</p>
+            <p dir="auto" class="text-sm text-slate-200 break-words">${esc(m.text)}</p>
           </div>
-          <button onclick="deleteMessage('${m.id}')" class="bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white px-3 py-1.5 rounded-xl text-xs font-bold transition border border-rose-500/30">
-            Delete ✕
-          </button>
-        </div>
-      `).join('');
+          <div class="flex flex-col gap-1.5">
+            ${pending ? `<button data-approve="${esc(m.id)}" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition">Approve ✓</button>` : ''}
+            <button data-delete="${esc(m.id)}" class="bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white px-3 py-1.5 rounded-xl text-xs font-bold transition border border-rose-500/30">Delete ✕</button>
+          </div>
+        </div>`;
     }
 
-    function escapeHtml(str) {
-      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    document.body.addEventListener('click', e => {
+      const del = e.target.closest('[data-delete]');
+      if (del) return deleteMessage(del.dataset.delete);
+      const ok = e.target.closest('[data-approve]');
+      if (ok) return WallStore.approve(ok.dataset.approve);
+    });
+
+    function setSwitch(id, on) {
+      const el = document.getElementById(id);
+      el.setAttribute('aria-checked', String(on));
+      el.style.background = on ? '#10B981' : '#475569';
     }
+
+    function renderAdmin(mode) {
+      const chip = document.getElementById('mode-chip');
+      chip.textContent = mode === 'live' ? '● Live sync' : '● This browser only';
+      chip.className = 'text-[10px] font-bold px-2.5 py-0.5 rounded-full ' + (mode === 'live' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300');
+      document.getElementById('local-warning').classList.toggle('hidden', mode === 'live');
+      document.getElementById('db-url').textContent = WallStore.databaseUrl;
+      document.getElementById('local-reason').textContent = {
+        sdk: "Firebase couldn't load. This network may be blocking gstatic.com; try another network.",
+        timeout: "The database didn't answer. Check the database exists in your Firebase project and its URL matches the one below, or try another network.",
+        denied: "The database refused access. In Firebase console → Realtime Database → Rules, allow read and write on nook_wall (see database.rules.json in the repo)."
+      }[WallStore.getProblem()] || '';
+
+      setSwitch('sw-open', !settings.isLocked);
+      setSwitch('sw-approval', !!settings.requireApproval);
+      setSwitch('sw-samples', !!settings.showSamples);
+      document.getElementById('lock-status-label').textContent = settings.isLocked ? 'Closed — students can’t post' : 'Accepting posts';
+
+      const promptInput = document.getElementById('prompt-input');
+      if (document.activeElement !== promptInput) promptInput.value = settings.prompt || '';
+      const joinInput = document.getElementById('join-url-input');
+      if (document.activeElement !== joinInput) joinInput.value = settings.joinUrl || '';
+      const bannedInput = document.getElementById('banned-input');
+      if (document.activeElement !== bannedInput) bannedInput.value = settings.bannedWords || '';
+
+      const pending = messages.filter(m => m.status === 'pending');
+      const live = messages.filter(m => m.status !== 'pending');
+
+      document.getElementById('pending-section').classList.toggle('hidden', pending.length === 0);
+      document.getElementById('pending-count').textContent = pending.length;
+      document.getElementById('pending-list').innerHTML = pending.map(m => messageRow(m, true)).join('');
+
+      document.getElementById('msg-count').textContent = live.length;
+      document.getElementById('admin-messages-list').innerHTML = live.length
+        ? live.map(m => messageRow(m, false)).join('')
+        : '<div class="text-center py-8 text-slate-500 text-xs">No posts on the wall right now.</div>';
+    }
+
+    WallStore.subscribe(snap => {
+      ready = true;
+      messages = snap.messages;
+      settings = snap.settings;
+      updateGate();
+      renderAdmin(snap.mode);
+    });
   </script>
 </body>
 </html>

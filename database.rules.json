@@ -1,0 +1,23 @@
+{
+  "rules": {
+    "nook_wall": {
+      ".read": true,
+      "settings": {
+        ".write": true
+      },
+      "messages": {
+        ".write": true,
+        "$id": {
+          ".validate": "!newData.exists() || newData.hasChildren(['name', 'text', 'createdAt'])",
+          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+          "text": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120" },
+          "charId": { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "createdAt": { ".validate": "newData.isNumber()" },
+          "hearts": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "status": { ".validate": "newData.val() === 'pending' || newData.val() === 'approved'" },
+          "$other": { ".validate": false }
+        }
+      }
+    }
+  }
+}

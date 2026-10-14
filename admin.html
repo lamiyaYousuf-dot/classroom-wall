@@ -37,6 +37,7 @@
         <input id="login-password" type="password" autocomplete="current-password" required placeholder="Password" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
         <p id="login-error" class="hidden text-xs text-rose-400"></p>
         <button id="login-btn" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl text-sm transition">Sign in</button>
+        <button type="button" id="forgot-btn" class="w-full text-xs text-slate-400 hover:text-white">Forgot password?</button>
       </form>
 
       <div id="gate-not-teacher" class="hidden mt-4 text-xs text-slate-300 space-y-3">
@@ -61,7 +62,7 @@
     </div>
   </div>
 
-  <div class="w-full max-w-3xl bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+  <div id="panel" class="hidden w-full max-w-3xl bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
 
     <!-- Header -->
     <div class="flex flex-wrap items-center justify-between gap-3 pb-6 border-b border-slate-800 mb-6">
@@ -218,6 +219,8 @@
     function updateGate() {
       const allowed = WallStore.isAdminHere();
       show('gate', !allowed);
+      // The controls aren't even drawn until a teacher is signed in.
+      show('panel', allowed);
       const live = mode === 'live';
       const step =
         !ready || (live && !authState.ready) ? 'loading' :
@@ -246,7 +249,10 @@
       'auth/too-many-requests': 'Too many attempts. Please wait a few minutes and try again.',
       'auth/unauthorized-domain': 'This website isn’t allowed to sign in yet. Add it under Firebase → Authentication → Settings → Authorized domains.',
       'auth/operation-not-allowed': 'Email/password sign-in is turned off. Turn it on in Firebase → Authentication → Sign-in method.',
-      'auth/network-request-failed': 'No connection. Check the internet and try again.'
+      'auth/network-request-failed': 'No connection. Check the internet and try again.',
+      'auth/invalid-login-credentials': 'Wrong email or password.',
+      'auth/missing-password': 'Please type your password.',
+      'auth/user-disabled': 'This account has been turned off in Firebase.'
     };
 
     document.getElementById('login-form').addEventListener('submit', e => {
@@ -259,10 +265,26 @@
       WallStore.signIn(document.getElementById('login-email').value.trim(), document.getElementById('login-password').value)
         .then(() => { document.getElementById('login-password').value = ''; })
         .catch(e2 => {
-          err.textContent = LOGIN_ERRORS[e2 && e2.code] || 'Could not sign in. Please try again.';
+          const code = (e2 && e2.code) || 'unknown';
+          err.textContent = LOGIN_ERRORS[code] || `Could not sign in (${code}). Please try again.`;
           err.classList.remove('hidden');
         })
         .finally(() => { btn.disabled = false; btn.textContent = 'Sign in'; });
+    });
+
+    document.getElementById('forgot-btn').addEventListener('click', () => {
+      const email = document.getElementById('login-email').value.trim();
+      const err = document.getElementById('login-error');
+      if (!email) {
+        err.textContent = 'Type your email above first, then tap "Forgot password?".';
+        err.classList.remove('hidden');
+        return;
+      }
+      // Same message whether or not the account exists, so the page can't be used to check emails.
+      WallStore.resetPassword(email).catch(() => {}).finally(() => {
+        err.textContent = `If ${email} is a teacher account, a password reset email is on its way. Check your inbox (and spam).`;
+        err.classList.remove('hidden');
+      });
     });
 
     function copyUid() {
@@ -436,7 +458,8 @@
       messages = snap.messages;
       settings = snap.settings;
       updateGate();
-      renderAdmin(snap.mode);
+      if (WallStore.isAdminHere()) renderAdmin(snap.mode);
+      else ['admin-messages-list', 'pending-list'].forEach(id => { document.getElementById(id).innerHTML = ''; });
     });
   </script>
 </body>

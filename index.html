@@ -94,12 +94,17 @@
       .phone-frame { border: 12px solid #141414; border-radius: 52px; box-shadow: 0 30px 60px rgba(0,0,0,0.45), 0 0 0 2px #333; }
       .phone-notch { display: block; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 110px; height: 24px; background: #141414; border-radius: 0 0 16px 16px; z-index: 5; }
     }
-    body.mode-join .phone-frame { border: 0; border-radius: 0; box-shadow: none; max-width: 520px; }
+    body.mode-join .phone-frame { border: 0; border-radius: 0; box-shadow: none; max-width: 520px; min-height: 100vh; }
+    body.mode-join { background: #FFF8EE; }
     body.mode-join .phone-notch { display: none; }
     body.mode-join #wall-col { display: none; }
     body.mode-join #phone-col { grid-column: 1 / -1; }
     body.mode-join { padding: 0; align-items: flex-start; }
     body.mode-join .lamp { display: none; }
+    .join-only { display: none; }
+    body.mode-join .join-only { display: flex; }
+    @keyframes heartPop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+    .heart-pop { animation: heartPop 0.35s ease-out; }
     body.mode-screen #phone-col { display: none; }
     body.mode-screen #wall-col { grid-column: 1 / -1; min-height: calc(100vh - 3rem); }
     body.mode-screen .stage { min-height: max(560px, 66vh); }
@@ -207,6 +212,13 @@
             <span class="text-xs font-bold border-2 border-slate-800 text-slate-800 px-2.5 py-0.5 rounded-lg tracking-wider">NOOK</span>
             <span class="text-[10px] text-slate-500 uppercase tracking-wider">classroom wall</span>
           </div>
+          <!-- Student phone tabs (only on ?join): write a message, or see the wall and give hearts -->
+          <div class="join-only mb-4 p-1 bg-[#F3E6D3] rounded-2xl gap-1" role="tablist">
+            <button type="button" id="tab-write" data-tab="write" role="tab" class="flex-1 py-2 rounded-xl text-xs font-bold transition">✏️ Write</button>
+            <button type="button" id="tab-wall" data-tab="wall" role="tab" class="flex-1 py-2 rounded-xl text-xs font-bold transition">👀 See the wall <span id="wall-count" class="ml-1 px-1.5 rounded-full bg-[#E4572E] text-white text-[10px]">0</span></button>
+          </div>
+
+          <div id="write-panel">
           <h2 class="text-2xl font-bold text-slate-800 leading-tight">A little thought. A little character.</h2>
           <p class="text-xs text-slate-500 mt-1 leading-relaxed">Keep it fun, kind and short. Your character will carry it across the big screen.</p>
 
@@ -247,6 +259,20 @@
               <span class="text-base">→</span>
             </button>
           </form>
+
+          </div>
+
+          <div id="wall-panel" class="hidden">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-xl font-bold text-slate-800">On the wall</h2>
+              <div class="flex gap-1">
+                <button type="button" data-feed-sort="new" class="feed-sort px-2.5 py-1 rounded-lg text-[11px] font-bold">Newest</button>
+                <button type="button" data-feed-sort="popular" class="feed-sort px-2.5 py-1 rounded-lg text-[11px] font-bold">🔥 Popular</button>
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mb-3">Tap ♥ on the messages you like.</p>
+            <div id="phone-feed" class="space-y-2.5"></div>
+          </div>
 
           <div class="mt-5 pt-4 border-t border-[#EADBC3] text-center text-[10px] text-slate-400 tracking-wide">
             NOOK · <span id="join-host">classroom wall</span> · English / العربية
@@ -478,6 +504,7 @@
         document.getElementById('user-text').value = '';
         document.getElementById('char-counter').textContent = '0';
         showToast(pending ? 'Sent! Your teacher will check it first 👀' : 'Sent to the wall! 🎉');
+        if (!pending && document.body.classList.contains('mode-join')) setPhoneTab('wall');
       }).catch(err => {
         console.error('Classroom wall: send failed', err);
         showFormError(/permission/i.test(String(err && (err.code || err.message)))
@@ -568,6 +595,68 @@
       }).join('');
     }
 
+    // One heart per message per phone.
+    function giveHeart(id) {
+      if (heartedIds.has(id)) return;
+      heartedIds.add(id);
+      safeSet('nook_hearted', JSON.stringify([...heartedIds].slice(-200)));
+      const sample = samples.find(s => s.id === id);
+      if (sample) { sample.hearts++; renderWall(); } else { WallStore.heart(id); }
+      renderFeed();
+    }
+
+    // ---------- Student phone: see the wall ----------
+    let phoneTab = 'write';
+    let feedSort = 'new';
+
+    function setPhoneTab(tab) {
+      phoneTab = tab;
+      document.getElementById('write-panel').classList.toggle('hidden', tab !== 'write');
+      document.getElementById('wall-panel').classList.toggle('hidden', tab !== 'wall');
+      ['write', 'wall'].forEach(t => {
+        const btn = document.getElementById('tab-' + t);
+        btn.setAttribute('aria-selected', String(t === tab));
+        btn.className = 'flex-1 py-2 rounded-xl text-xs font-bold transition ' +
+          (t === tab ? 'bg-white text-slate-800 shadow' : 'text-slate-500 hover:text-slate-700');
+      });
+      renderFeed();
+    }
+
+    function renderFeed() {
+      const visible = realMessages.filter(m => m.status !== 'pending');
+      document.getElementById('wall-count').textContent = visible.length;
+      document.querySelectorAll('.feed-sort').forEach(b => {
+        b.className = 'feed-sort px-2.5 py-1 rounded-lg text-[11px] font-bold ' +
+          (b.dataset.feedSort === feedSort ? 'bg-[#E4572E] text-white' : 'bg-[#F3E6D3] text-slate-600');
+      });
+      if (phoneTab !== 'wall') return;
+
+      const list = visible.slice();
+      if (feedSort === 'popular') list.sort((a, b) => (b.hearts || 0) - (a.hearts || 0));
+      const feed = document.getElementById('phone-feed');
+      if (!list.length) {
+        feed.innerHTML = '<p class="text-center text-xs text-slate-400 py-10">No messages yet. Be the first! ✨</p>';
+        return;
+      }
+      feed.innerHTML = list.map(m => {
+        const ch = WallStore.character(m.charId);
+        const mine = heartedIds.has(m.id);
+        return `
+          <div class="flex items-start gap-3 bg-white border border-[#EADBC3] rounded-2xl p-3">
+            <div class="text-[38px] leading-none shrink-0">${ch.icon}</div>
+            <div class="flex-1 min-w-0">
+              <p dir="auto" class="text-sm text-slate-800 font-medium break-words leading-snug">${esc(m.text)}</p>
+              <p dir="auto" class="text-[11px] text-slate-500 font-bold mt-1 truncate">— ${esc(m.name)}</p>
+            </div>
+            <button type="button" data-heart="${esc(m.id)}" ${mine ? 'disabled' : ''} aria-label="Give a heart"
+              class="shrink-0 flex flex-col items-center justify-center min-w-[48px] py-1.5 rounded-xl font-bold transition active:scale-90 ${mine ? 'bg-rose-500 text-white' : 'bg-rose-50 text-rose-600 hover:bg-rose-100'}">
+              <span class="text-lg leading-none">${mine ? '♥' : '♡'}</span>
+              <span class="text-[11px]">${m.hearts || 0}</span>
+            </button>
+          </div>`;
+      }).join('');
+    }
+
     function onWallClick(e) {
       const del = e.target.closest('[data-del]');
       if (del) {
@@ -575,15 +664,7 @@
         return;
       }
       const heart = e.target.closest('[data-heart]');
-      if (heart) {
-        const id = heart.dataset.heart;
-        if (heartedIds.has(id)) return;
-        heartedIds.add(id);
-        safeSet('nook_hearted', JSON.stringify([...heartedIds].slice(-200)));
-        const sample = samples.find(s => s.id === id);
-        if (sample) { sample.hearts++; renderWall(); } else { WallStore.heart(id); }
-        return;
-      }
+      if (heart) { giveHeart(heart.dataset.heart); return; }
       const avatar = e.target.closest('[data-avatar]');
       if (avatar) {
         avatar.classList.remove('animate-walk');
@@ -648,6 +729,18 @@
       });
       document.getElementById('message-form').addEventListener('submit', submitMessage);
       document.getElementById('wall-messages-container').addEventListener('click', onWallClick);
+      document.getElementById('wall-panel').addEventListener('click', e => {
+        const heart = e.target.closest('[data-heart]');
+        if (heart) {
+          heart.classList.add('heart-pop');
+          giveHeart(heart.dataset.heart);
+          return;
+        }
+        const sort = e.target.closest('[data-feed-sort]');
+        if (sort) { feedSort = sort.dataset.feedSort; renderFeed(); }
+      });
+      document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => setPhoneTab(b.dataset.tab)));
+      setPhoneTab(params.get('tab') === 'wall' ? 'wall' : 'write');
       document.getElementById('qr-modal').addEventListener('click', e => { if (e.target.id === 'qr-modal') closeQrModal(); });
       window.addEventListener('resize', renderWall);
 
@@ -655,6 +748,7 @@
         realMessages = snap.messages;
         settings = snap.settings;
         applyConnectionStatus(snap.mode, snap.problem);
+        renderFeed();
         applySettingsToForm();
         updateQrCodeImages();
         renderWall();

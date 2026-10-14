@@ -10,7 +10,7 @@ NFC tag) and send a short note from their phone, in English or Arabic.
 | --- | --- |
 | `index.html` | Wall and phone form side by side (demo view) |
 | `index.html?screen` | **Projector**: the wall only, sized for a big screen |
-| `index.html?join` | **Students**: the phone form only. The QR code points here, so use this URL for NFC tags too |
+| `index.html?join` | **Students**: the phone form, plus a **See the wall** tab to read messages and give hearts (one per message per phone). The QR code points here, so use this URL for NFC tags too |
 | `admin.html` | **Teacher**: moderation controls (default PIN `1234`, change it on first use) |
 
 ## Teacher controls (`admin.html`)

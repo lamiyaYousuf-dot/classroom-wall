@@ -3,15 +3,19 @@
 // projector see the same wall. If Firebase can't be reached, it falls back to
 // localStorage so the demo still works across tabs in one browser.
 (function () {
+  // From Firebase console → Project settings → Your apps → Web app. The apiKey is not a
+  // secret (it only identifies the project); security comes from database.rules.json.
   const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAQc_L31iK9AvRT2gwB8eAAnF8VfBW7g1k",
+    authDomain: "classroom-wall-73f88.firebaseapp.com",
+    projectId: "classroom-wall-73f88",
     databaseURL: "https://classroom-wall-73f88-default-rtdb.firebaseio.com"
   };
   const ROOT = 'nook_wall';
   const LOCAL_KEY = 'nook_wall_local_v3';
-  const ADMIN_KEY = 'nook_wall_admin';
+  const LOCAL_ADMIN_KEY = 'nook_wall_local_admin'; // demo mode only (no Firebase)
   const CONNECT_TIMEOUT_MS = 6000;
   const EXPIRATION_MS = 30 * 60 * 1000;
-  const DEFAULT_PIN = '1234';
 
   // Cute animal faces drawn as inline SVG, so they look the same on every phone
   // (emoji differ between iPhone, Android and Windows). Sized with font-size (1em).
@@ -90,18 +94,6 @@
       `<path d="M23 15 q9 -7 18 0" stroke="#5B9BD5" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="32" cy="10" r="3" fill="#FF8FAB"/>`) }
   ];
 
-  // Small, non-cryptographic hash. The PIN is only a speed bump to keep
-  // students out of the teacher page; it is not real security.
-  function hashPin(pin) {
-    let h = 0x811c9dc5;
-    const s = 'nook:' + String(pin);
-    for (let i = 0; i < s.length; i++) {
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 0x01000193) >>> 0;
-    }
-    return h.toString(16);
-  }
-
   const DEFAULT_SETTINGS = {
     isLocked: false,
     closesAt: 0, // time (ms) when the wall closes by itself; 0 = no timer
@@ -109,8 +101,7 @@
     showSamples: true,
     prompt: 'What made you smile in class today?',
     joinUrl: '',
-    bannedWords: 'stupid, idiot, dumb, hate you, shut up, loser, ugly, غبي, اسكت, حمار',
-    pinHash: hashPin(DEFAULT_PIN)
+    bannedWords: 'stupid, idiot, dumb, hate you, shut up, loser, ugly, غبي, اسكت, حمار'
   };
 
   let mode = 'connecting';
@@ -121,10 +112,16 @@
   // answered: wrong URL, not created, or network) or 'denied' (database rules refuse access).
   let problem = null;
   let serverOffset = 0; // difference between this device's clock and Firebase's clock
+  // Teacher sign-in (Firebase Authentication). A signed-in user is a teacher only if
+  // admins/<uid> is true in the database, which can only be set from the Firebase console.
+  const auth = { available: false, ready: false, user: null, isAdmin: false };
   const listeners = [];
 
   function snapshot() {
-    return { messages: messages.slice(), settings: { ...settings }, mode, problem };
+    return {
+      messages: messages.slice(), settings: { ...settings }, mode, problem,
+      auth: { ...auth, user: auth.user && { email: auth.user.email, uid: auth.user.uid } }
+    };
   }
 
   function emit() {
@@ -135,9 +132,11 @@
   function normalize(raw) {
     raw = raw || {};
     const msgData = raw.messages || {};
+    const t = now();
     messages = Object.keys(msgData)
       .map(id => ({ id, ...msgData[id] }))
       .filter(m => typeof m.text === 'string' && typeof m.name === 'string')
+      .filter(m => t - (m.createdAt || 0) < EXPIRATION_MS)
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     settings = { ...DEFAULT_SETTINGS, ...(raw.settings || {}) };
   }
@@ -168,8 +167,11 @@
   function startFirebase() {
     try {
       if (!window.firebase) throw new Error('Firebase SDK not loaded');
-      if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      const config = { ...FIREBASE_CONFIG };
+      if (!config.apiKey) delete config.apiKey;
+      if (!firebase.apps.length) firebase.initializeApp(config);
       fbRef = firebase.database().ref(ROOT);
+      startAuth();
       // Phones with a wrong clock would otherwise close the wall early or late.
       firebase.database().ref('.info/serverTimeOffset').on('value', s => { serverOffset = s.val() || 0; });
     } catch (e) {
@@ -190,6 +192,32 @@
       console.error('Classroom wall: Firebase refused access', err);
       startLocal('denied');
     });
+  }
+
+  function startAuth() {
+    if (!FIREBASE_CONFIG.apiKey || !firebase.auth) { auth.ready = true; return; }
+    auth.available = true;
+    firebase.auth().onAuthStateChanged(async user => {
+      auth.user = user;
+      auth.isAdmin = false;
+      if (user) {
+        try {
+          const s = await firebase.database().ref('admins/' + user.uid).once('value');
+          auth.isAdmin = s.val() === true;
+        } catch (e) { auth.isAdmin = false; }
+      }
+      auth.ready = true;
+      emit();
+    });
+  }
+
+  function signIn(email, password) {
+    return firebase.auth().signInWithEmailAndPassword(email, password);
+  }
+
+  function signOut() {
+    if (mode === 'local') { setAdminHere(false); emit(); return Promise.resolve(); }
+    return auth.available ? firebase.auth().signOut() : Promise.resolve();
   }
 
   // ---------- writes ----------
@@ -216,10 +244,8 @@
 
   function heart(id) {
     if (mode === 'live') {
-      return fbRef.child('messages/' + id).transaction(m => {
-        if (m) m.hearts = (m.hearts || 0) + 1;
-        return m;
-      });
+      // Only the hearts count is written; the database rules allow exactly +1.
+      return fbRef.child('messages/' + id + '/hearts').transaction(h => (h || 0) + 1);
     }
     const m = messages.find(x => x.id === id);
     if (!m) return Promise.resolve();
@@ -261,11 +287,17 @@
     return h ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
   }
 
+  // Everyone hides expired messages; only the teacher's browser deletes them.
   function removeExpired() {
-    const now = Date.now();
-    messages
-      .filter(m => now - (m.createdAt || 0) >= EXPIRATION_MS)
-      .forEach(m => remove(m.id));
+    const t = now();
+    const expired = messages.filter(m => t - (m.createdAt || 0) >= EXPIRATION_MS);
+    if (!expired.length) return;
+    if (isAdminHere()) {
+      expired.forEach(m => remove(m.id));
+    } else {
+      messages = messages.filter(m => !expired.includes(m));
+      emit();
+    }
   }
 
   // ---------- helpers ----------
@@ -289,14 +321,17 @@
     return null;
   }
 
+  // Teacher controls are shown when the signed-in user is a teacher. In demo mode
+  // (no Firebase) the data only lives in this browser, so there is nothing to protect.
   function isAdminHere() {
-    try { return localStorage.getItem(ADMIN_KEY) === settings.pinHash; } catch (e) { return false; }
+    if (mode === 'live') return auth.isAdmin;
+    try { return localStorage.getItem(LOCAL_ADMIN_KEY) === '1'; } catch (e) { return false; }
   }
 
   function setAdminHere(on) {
     try {
-      if (on) localStorage.setItem(ADMIN_KEY, settings.pinHash);
-      else localStorage.removeItem(ADMIN_KEY);
+      if (on) localStorage.setItem(LOCAL_ADMIN_KEY, '1');
+      else localStorage.removeItem(LOCAL_ADMIN_KEY);
     } catch (e) {}
   }
 
@@ -316,7 +351,6 @@
 
   window.WallStore = {
     CHARACTERS,
-    DEFAULT_PIN,
     DEFAULT_SETTINGS,
     EXPIRATION_MS,
     subscribe(fn) { listeners.push(fn); if (mode !== 'connecting') fn(snapshot()); },
@@ -325,7 +359,8 @@
     databaseUrl: FIREBASE_CONFIG.databaseURL,
     addMessage, heart, remove, approve, clearAll, updateSettings, removeExpired,
     now, isClosed, msUntilClose, formatCountdown,
-    findBannedWord, hashPin, isAdminHere, setAdminHere, escapeHtml, character
+    signIn, signOut, getAuth: () => ({ ...auth }),
+    findBannedWord, isAdminHere, setAdminHere, escapeHtml, character
   };
 
   startFirebase();

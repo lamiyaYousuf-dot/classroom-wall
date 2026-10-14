@@ -9,6 +9,7 @@
   <!-- Firebase SDKs for Realtime Sync -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="wall-store.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
@@ -20,18 +21,44 @@
 </head>
 <body class="min-h-screen text-slate-100 p-4 sm:p-8 flex justify-center items-start">
 
-  <!-- PIN GATE -->
-  <div id="pin-gate" class="fixed inset-0 z-50 bg-slate-950 flex items-center justify-center p-4">
-    <form id="pin-form" class="w-full max-w-xs bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center shadow-2xl">
-      <div class="text-3xl mb-2">🍎</div>
-      <h1 class="text-lg font-bold text-white">Teacher controls</h1>
-      <p class="text-xs text-slate-400 mt-1 mb-4">Enter your PIN to moderate the classroom wall.</p>
-      <input id="pin-input" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" class="w-full text-center tracking-[0.4em] bg-slate-950 border border-slate-700 rounded-xl px-3 py-3 text-lg text-white focus:outline-none focus:border-amber-500">
-      <p id="pin-error" class="hidden text-xs text-rose-400 mt-2">Wrong PIN. Try again.</p>
-      <p id="pin-default-hint" class="hidden text-[11px] text-amber-300/80 mt-3">First time? The default PIN is <b>1234</b>. Change it once you're in.</p>
-      <button class="mt-4 w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl text-sm transition">Unlock</button>
-      <a href="index.html" class="block mt-3 text-xs text-slate-500 hover:text-slate-300">← Back to the wall</a>
-    </form>
+  <!-- TEACHER SIGN-IN GATE -->
+  <div id="gate" class="fixed inset-0 z-50 bg-slate-950 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+      <div class="text-center">
+        <div class="text-3xl mb-2">🍎</div>
+        <h1 class="text-lg font-bold text-white">Teacher controls</h1>
+      </div>
+
+      <p id="gate-loading" class="text-xs text-slate-400 text-center mt-3">Connecting…</p>
+
+      <form id="login-form" class="hidden mt-4 space-y-3" autocomplete="on">
+        <p class="text-xs text-slate-400 text-center">Sign in with your teacher account.</p>
+        <input id="login-email" type="email" autocomplete="username" required placeholder="Email" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+        <input id="login-password" type="password" autocomplete="current-password" required placeholder="Password" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500">
+        <p id="login-error" class="hidden text-xs text-rose-400"></p>
+        <button id="login-btn" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl text-sm transition">Sign in</button>
+      </form>
+
+      <div id="gate-not-teacher" class="hidden mt-4 text-xs text-slate-300 space-y-3">
+        <p>You're signed in as <b id="nt-email"></b>, but this account isn't a teacher for this wall yet.</p>
+        <p class="text-slate-400">To make it a teacher, open Firebase console → <b>Realtime Database → Data</b>, and add:</p>
+        <pre class="bg-slate-950 border border-slate-700 rounded-xl p-3 text-[11px] text-amber-200 whitespace-pre-wrap break-all">admins
+  └ <span id="nt-uid"></span> : true</pre>
+        <button type="button" onclick="copyUid()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 rounded-xl transition">📋 Copy my user ID</button>
+        <button type="button" onclick="WallStore.signOut()" class="w-full text-slate-400 hover:text-white py-1">Sign out</button>
+      </div>
+
+      <div id="gate-setup" class="hidden mt-4 text-xs text-slate-300 space-y-2">
+        <p><b>Teacher sign-in isn't set up yet.</b> Add the Firebase web <code>apiKey</code> to <code>wall-store.js</code> (see README → Teacher sign-in).</p>
+      </div>
+
+      <div id="gate-demo" class="hidden mt-4 text-xs text-slate-300 space-y-3 text-center">
+        <p>The live database isn't connected, so this is <b>demo mode</b>: everything stays in this browser only.</p>
+        <button type="button" onclick="WallStore.setAdminHere(true); updateGate()" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl text-sm transition">Continue in demo mode</button>
+      </div>
+
+      <a href="index.html" class="block mt-4 text-center text-xs text-slate-500 hover:text-slate-300">← Back to the wall</a>
+    </div>
   </div>
 
   <div class="w-full max-w-3xl bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
@@ -48,7 +75,7 @@
       <div class="flex items-center gap-2">
         <a href="index.html?screen" target="_blank" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl transition">📽 Projector view</a>
         <a href="index.html" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl transition">← Open Wall</a>
-        <button onclick="lockAdmin()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl transition" title="Sign out of teacher controls">🔐</button>
+        <button onclick="WallStore.signOut()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl transition" title="Sign out of teacher controls">Sign out</button>
       </div>
     </div>
 
@@ -142,14 +169,9 @@
       </div>
     </div>
 
-    <!-- PIN -->
-    <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-4 mb-8">
-      <label for="new-pin-input" class="block text-xs font-bold text-slate-300 mb-1">Change teacher PIN</label>
-      <div class="flex gap-2">
-        <input type="password" id="new-pin-input" inputmode="numeric" minlength="4" maxlength="12" placeholder="New PIN (4+ digits)" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
-        <button onclick="savePin()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition">Update</button>
-      </div>
-      <p id="pin-default-warning" class="hidden text-[11px] text-amber-300/80 mt-2">You're still using the default PIN 1234. Please change it.</p>
+    <!-- Account -->
+    <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-4 mb-8 text-xs text-slate-400">
+      Signed in as <b id="signed-in-as" class="text-slate-200"></b>. To change your password, use Firebase console → Authentication → Users.
     </div>
 
     <!-- Pending -->
@@ -187,40 +209,76 @@
       showToast.timer = setTimeout(() => t.classList.add('hidden'), 2500);
     }
 
-    // ---------- PIN gate ----------
+    // ---------- Teacher sign-in ----------
+    let authState = { available: false, ready: false, user: null, isAdmin: false };
+    let mode = 'connecting';
+
+    function show(id, on) { document.getElementById(id).classList.toggle('hidden', !on); }
+
     function updateGate() {
-      const unlocked = WallStore.isAdminHere();
-      document.getElementById('pin-gate').classList.toggle('hidden', unlocked);
-      const isDefault = settings.pinHash === WallStore.hashPin(WallStore.DEFAULT_PIN);
-      document.getElementById('pin-default-hint').classList.toggle('hidden', !isDefault);
-      document.getElementById('pin-default-warning').classList.toggle('hidden', !isDefault);
-      if (!unlocked) setTimeout(() => document.getElementById('pin-input').focus(), 50);
+      const allowed = WallStore.isAdminHere();
+      show('gate', !allowed);
+      const live = mode === 'live';
+      const step =
+        !ready || (live && !authState.ready) ? 'loading' :
+        !live ? 'demo' :
+        !authState.available ? 'setup' :
+        !authState.user ? 'login' :
+        !authState.isAdmin ? 'not-teacher' : 'ok';
+      show('gate-loading', step === 'loading');
+      show('gate-demo', step === 'demo');
+      show('gate-setup', step === 'setup');
+      show('login-form', step === 'login');
+      show('gate-not-teacher', step === 'not-teacher');
+      if (authState.user) {
+        document.getElementById('nt-email').textContent = authState.user.email || '';
+        document.getElementById('nt-uid').textContent = authState.user.uid;
+      }
+      document.getElementById('signed-in-as').textContent =
+        live ? (authState.user ? authState.user.email : '') : 'demo mode (this browser only)';
     }
 
-    document.getElementById('pin-form').addEventListener('submit', e => {
+    const LOGIN_ERRORS = {
+      'auth/invalid-credential': 'Wrong email or password.',
+      'auth/wrong-password': 'Wrong email or password.',
+      'auth/user-not-found': 'Wrong email or password.',
+      'auth/invalid-email': 'That email address doesn’t look right.',
+      'auth/too-many-requests': 'Too many attempts. Please wait a few minutes and try again.',
+      'auth/unauthorized-domain': 'This website isn’t allowed to sign in yet. Add it under Firebase → Authentication → Settings → Authorized domains.',
+      'auth/operation-not-allowed': 'Email/password sign-in is turned off. Turn it on in Firebase → Authentication → Sign-in method.',
+      'auth/network-request-failed': 'No connection. Check the internet and try again.'
+    };
+
+    document.getElementById('login-form').addEventListener('submit', e => {
       e.preventDefault();
-      if (!ready) return;
-      const input = document.getElementById('pin-input');
-      const ok = WallStore.hashPin(input.value.trim()) === settings.pinHash;
-      document.getElementById('pin-error').classList.toggle('hidden', ok);
-      if (ok) { WallStore.setAdminHere(true); input.value = ''; updateGate(); }
+      const btn = document.getElementById('login-btn');
+      const err = document.getElementById('login-error');
+      err.classList.add('hidden');
+      btn.disabled = true;
+      btn.textContent = 'Signing in…';
+      WallStore.signIn(document.getElementById('login-email').value.trim(), document.getElementById('login-password').value)
+        .then(() => { document.getElementById('login-password').value = ''; })
+        .catch(e2 => {
+          err.textContent = LOGIN_ERRORS[e2 && e2.code] || 'Could not sign in. Please try again.';
+          err.classList.remove('hidden');
+        })
+        .finally(() => { btn.disabled = false; btn.textContent = 'Sign in'; });
     });
 
-    function lockAdmin() { WallStore.setAdminHere(false); updateGate(); }
-
-    function savePin() {
-      const input = document.getElementById('new-pin-input');
-      const pin = input.value.trim();
-      if (pin.length < 4) { showToast('PIN must be at least 4 characters'); return; }
-      const pinHash = WallStore.hashPin(pin);
-      WallStore.updateSettings({ pinHash }).then(() => {
-        input.value = '';
-        // Stay signed in on this device with the new PIN.
-        settings.pinHash = pinHash;
-        WallStore.setAdminHere(true);
-        showToast('PIN updated');
-      });
+    function copyUid() {
+      navigator.clipboard.writeText(authState.user ? authState.user.uid : '').then(() => showToast('User ID copied'));
     }
+
+    // Any write the database refuses (e.g. the session expired) is shown instead of failing silently.
+    function reportWriteError(e) {
+      console.error(e);
+      showToast(/permission/i.test(String(e && (e.code || e.message))) ? 'Not allowed. Please sign in again.' : 'Could not save. Please try again.');
+    }
+
+    ['updateSettings', 'remove', 'approve', 'clearAll'].forEach(name => {
+      const original = WallStore[name];
+      WallStore[name] = (...args) => { const p = original(...args); p.catch(reportWriteError); return p; };
+    });
 
     // ---------- Settings ----------
     function toggleSetting(key) {
@@ -373,6 +431,8 @@
 
     WallStore.subscribe(snap => {
       ready = true;
+      mode = snap.mode;
+      authState = snap.auth;
       messages = snap.messages;
       settings = snap.settings;
       updateGate();

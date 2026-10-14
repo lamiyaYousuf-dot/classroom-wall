@@ -233,6 +233,10 @@
     return firebase.auth().signInWithEmailAndPassword(email, password);
   }
 
+  function resetPassword(email) {
+    return firebase.auth().sendPasswordResetEmail(email);
+  }
+
   function signOut() {
     if (mode === 'local') { setAdminHere(false); emit(); return Promise.resolve(); }
     return auth.available ? firebase.auth().signOut() : Promise.resolve();
@@ -378,7 +382,7 @@
     databaseUrl: FIREBASE_CONFIG.databaseURL,
     addMessage, heart, remove, approve, clearAll, updateSettings, removeExpired,
     now, isClosed, msUntilClose, formatCountdown,
-    signIn, signOut, getAuth: () => ({ ...auth }),
+    signIn, signOut, resetPassword, getAuth: () => ({ ...auth }),
     findBannedWord, isAdminHere, setAdminHere, escapeHtml, character
   };
 

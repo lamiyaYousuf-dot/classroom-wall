@@ -8,14 +8,28 @@
       "messages": {
         ".write": true,
         "$id": {
-          ".validate": "!newData.exists() || newData.hasChildren(['name', 'text', 'createdAt'])",
-          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
-          "text": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120" },
-          "charId": { ".validate": "newData.isString() && newData.val().length <= 20" },
-          "createdAt": { ".validate": "newData.isNumber()" },
-          "hearts": { ".validate": "newData.isNumber() && newData.val() >= 0" },
-          "status": { ".validate": "newData.val() === 'pending' || newData.val() === 'approved'" },
-          "$other": { ".validate": false }
+          ".validate": "!newData.exists() || (newData.hasChildren(['name', 'text', 'createdAt']) && (data.exists() || (root.child('nook_wall/settings/isLocked').val() != true && (root.child('nook_wall/settings/closesAt').val() == null || root.child('nook_wall/settings/closesAt').val() == 0 || now < root.child('nook_wall/settings/closesAt').val()))))",
+          "name": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20"
+          },
+          "text": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
+          },
+          "charId": {
+            ".validate": "newData.isString() && newData.val().length <= 20"
+          },
+          "createdAt": {
+            ".validate": "newData.isNumber()"
+          },
+          "hearts": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "status": {
+            ".validate": "newData.val() === 'pending' || newData.val() === 'approved'"
+          },
+          "$other": {
+            ".validate": false
+          }
         }
       }
     }

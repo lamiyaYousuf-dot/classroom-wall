@@ -18,6 +18,8 @@ NFC tag) and send a short note from their phone, in English or Arabic.
 - **Delete** any message with one tap, or **Clear all**.
 - **Review before posting**: new messages wait in a queue until you tap Approve.
 - **Wall open** switch: close the wall so nobody can post.
+- **Close automatically**: set a timer (5, 10, 15 or 30 minutes) or a closing time. Students and the
+  chalkboard show a countdown, and the form closes when time is up. Turn "Wall open" back on to reopen.
 - **Blocked words** (English and Arabic): messages containing them can't be sent, and older posts that
   contain them are flagged in red.
 - **Today's question**: shown on the chalkboard and on students' phones.

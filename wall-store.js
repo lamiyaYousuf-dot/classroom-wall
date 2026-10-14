@@ -117,6 +117,18 @@
   const auth = { available: false, ready: false, user: null, isAdmin: false };
   const listeners = [];
 
+  // Resolves true as soon as the live database is connected, or false after timeoutMs.
+  // Phones on mobile data can take well over the 6-second fallback to connect.
+  function whenLive(timeoutMs) {
+    if (mode === 'live') return Promise.resolve(true);
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { remove(); resolve(false); }, timeoutMs);
+      const check = () => { if (mode === 'live') { clearTimeout(timer); remove(); resolve(true); } };
+      const remove = () => { const i = listeners.indexOf(check); if (i >= 0) listeners.splice(i, 1); };
+      listeners.push(check);
+    });
+  }
+
   function snapshot() {
     return {
       messages: messages.slice(), settings: { ...settings }, mode, problem,
@@ -158,9 +170,12 @@
     mode = 'local';
     normalize(readLocal());
     emit();
-    window.addEventListener('storage', e => {
-      if (mode === 'local' && e.key === LOCAL_KEY) { normalize(readLocal()); emit(); }
-    });
+    if (!startLocal.listening) {
+      startLocal.listening = true;
+      window.addEventListener('storage', e => {
+        if (mode === 'local' && e.key === LOCAL_KEY) { normalize(readLocal()); emit(); }
+      });
+    }
   }
 
   // ---------- Firebase ----------
@@ -181,7 +196,7 @@
     // On a slow network, show the local wall after a few seconds but keep listening:
     // if Firebase answers later, switch over to the live wall.
     const timer = setTimeout(() => { if (mode === 'connecting') startLocal('timeout'); }, CONNECT_TIMEOUT_MS);
-    fbRef.on('value', snap => {
+    const listen = () => fbRef.on('value', snap => {
       clearTimeout(timer);
       mode = 'live';
       problem = null;
@@ -191,7 +206,10 @@
       clearTimeout(timer);
       console.error('Classroom wall: Firebase refused access', err);
       startLocal('denied');
+      // The teacher may be fixing the rules right now: try again shortly.
+      setTimeout(listen, 15000);
     });
+    listen();
   }
 
   function startAuth() {
@@ -355,6 +373,7 @@
     EXPIRATION_MS,
     subscribe(fn) { listeners.push(fn); if (mode !== 'connecting') fn(snapshot()); },
     getMode: () => mode,
+    whenLive,
     getProblem: () => problem,
     databaseUrl: FIREBASE_CONFIG.databaseURL,
     addMessage, heart, remove, approve, clearAll, updateSettings, removeExpired,

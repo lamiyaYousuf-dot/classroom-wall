@@ -1,35 +1,39 @@
 {
   "rules": {
+    "admins": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
     "nook_wall": {
       ".read": true,
       "settings": {
-        ".write": true
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "isLocked": { ".validate": "newData.isBoolean()" },
+        "requireApproval": { ".validate": "newData.isBoolean()" },
+        "showSamples": { ".validate": "newData.isBoolean()" },
+        "closesAt": { ".validate": "newData.isNumber()" },
+        "prompt": { ".validate": "newData.isString() && newData.val().length <= 120" },
+        "joinUrl": { ".validate": "newData.isString() && newData.val().length <= 300" },
+        "bannedWords": { ".validate": "newData.isString() && newData.val().length <= 3000" },
+        "$other": { ".validate": false }
       },
       "messages": {
-        ".write": true,
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
         "$id": {
-          ".validate": "!newData.exists() || (newData.hasChildren(['name', 'text', 'createdAt']) && (data.exists() || (root.child('nook_wall/settings/isLocked').val() != true && (root.child('nook_wall/settings/closesAt').val() == null || root.child('nook_wall/settings/closesAt').val() == 0 || now < root.child('nook_wall/settings/closesAt').val()))))",
-          "name": {
-            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20"
-          },
-          "text": {
-            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
-          },
-          "charId": {
-            ".validate": "newData.isString() && newData.val().length <= 20"
-          },
-          "createdAt": {
-            ".validate": "newData.isNumber()"
-          },
+          ".write": "!data.exists() && newData.exists() && root.child('nook_wall/settings/isLocked').val() !== true && (!root.child('nook_wall/settings/closesAt').exists() || root.child('nook_wall/settings/closesAt').val() === 0 || now < root.child('nook_wall/settings/closesAt').val()) && newData.child('hearts').val() === 0 && newData.child('createdAt').val() > now - 300000 && newData.child('createdAt').val() < now + 300000 && ((root.child('nook_wall/settings/requireApproval').val() === true && newData.child('status').val() === 'pending') || (root.child('nook_wall/settings/requireApproval').val() !== true && newData.child('status').val() === 'approved'))",
+          ".validate": "newData.hasChildren(['name', 'text', 'charId', 'createdAt', 'hearts', 'status'])",
+          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+          "text": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120" },
+          "charId": { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "createdAt": { ".validate": "newData.isNumber()" },
+          "status": { ".validate": "newData.val() === 'pending' || newData.val() === 'approved'" },
           "hearts": {
+            ".write": "data.exists() && newData.isNumber() && newData.val() === data.val() + 1",
             ".validate": "newData.isNumber() && newData.val() >= 0"
           },
-          "status": {
-            ".validate": "newData.val() === 'pending' || newData.val() === 'approved'"
-          },
-          "$other": {
-            ".validate": false
-          }
+          "$other": { ".validate": false }
         }
       }
     }

@@ -11,7 +11,7 @@ NFC tag) and send a short note from their phone, in English or Arabic.
 | `index.html` | Wall and phone form side by side (demo view) |
 | `index.html?screen` | **Projector**: the wall only, sized for a big screen |
 | `index.html?join` | **Students**: the phone form, plus a **See the wall** tab to read messages and give hearts (one per message per phone). The QR code points here, so use this URL for NFC tags too |
-| `admin.html` | **Teacher**: moderation controls (default PIN `1234`, change it on first use) |
+| `admin.html` | **Teacher**: moderation controls. Sign in with your teacher account (see *Teacher sign-in*) |
 
 ## Teacher controls (`admin.html`)
 
@@ -26,7 +26,7 @@ NFC tag) and send a short note from their phone, in English or Arabic.
 - **Student link**: the address the QR code points to. Leave it empty to use the live site
   (`https://lamiyayousuf-dot.github.io/classroom-wall/?join`).
 - **Sample messages**: fills a quiet wall with example notes. They're only shown on screen and never saved.
-- Once you've unlocked `admin.html` in a browser, the wall in that same browser shows a ✕ on every bubble
+- Once you've signed in on `admin.html`, the wall in that same browser shows a ✕ on every bubble
   so you can remove a message straight from the projector.
 
 Students can send one message every 15 seconds. Messages disappear after 30 minutes.
@@ -51,9 +51,38 @@ The wall footer shows **● Live** when phones and the screen are connected. If 
 4. Put that URL in `wall-store.js` as `databaseURL`.
 5. Under **Rules**, paste the contents of `database.rules.json` and click **Publish**.
 
-`database.rules.json` has suggested rules that limit message size and shape. Paste them into
-Firebase console → Realtime Database → Rules.
+### Teacher sign-in (one time)
 
-**Security note:** the PIN, blocked words and send limit run in the browser. They keep a classroom
-honest, but they aren't real security: someone technical could still write to the database directly.
-For that you'd add Firebase Authentication and restrict deletes and settings to the teacher's account.
+Teacher actions (settings, deleting, approving, clearing) are only allowed for a signed-in teacher.
+This is checked by the database itself, not just the web page.
+
+1. **Get the web app key.** Firebase console → ⚙️ **Project settings** → **Your apps**. If there is no
+   web app, click **</>** to add one (any nickname, no hosting). Copy the `apiKey` value and put it in
+   `wall-store.js` → `FIREBASE_CONFIG.apiKey`. It is not a secret; it only identifies the project.
+2. **Turn on email sign-in.** **Build → Authentication → Get started → Sign-in method → Email/Password →
+   Enable**.
+3. **Allow the website.** **Authentication → Settings → Authorized domains → Add domain** →
+   `lamiyayousuf-dot.github.io`.
+4. **Create the teacher account.** **Authentication → Users → Add user** with your email and a strong
+   password.
+5. **Make it a teacher.** Open `admin.html` and sign in. It shows your **user ID**. In **Realtime Database →
+   Data**, add a key `admins` with a child `<your user ID>` set to `true` (boolean). Refresh the page.
+6. **Publish the rules.** Paste `database.rules.json` into **Realtime Database → Rules** and click **Publish**.
+
+To add another teacher, repeat steps 4–5 for their account. Teachers can only be added from the
+Firebase console, never from the app.
+
+### What the database rules enforce
+
+- Anyone can read the wall and post a new message, but only while the wall is open and before the
+  closing time, with the right size and shape, a current timestamp and 0 hearts.
+- When **Review before posting** is on, new messages must arrive as *pending*; only a teacher can approve.
+- Hearts can only go up by exactly one at a time.
+- Only a signed-in teacher (listed under `admins`) can change settings, approve, delete or clear.
+- Nobody can make themselves a teacher from the app.
+
+The rules are tested against the Firebase emulator (34 checks, including every case above).
+
+**Remaining limits:** blocked words and the 15-second send limit still run in the browser, so a
+technical student could bypass them by writing to the database directly. Use **Review before posting**
+when you need to be certain nothing appears without your approval.

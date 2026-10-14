@@ -175,6 +175,7 @@
         <div class="chalkboard">
           <small>Today's question</small>
           <p id="board-prompt" dir="auto"></p>
+          <small id="board-timer" style="display:none;margin-top:6px;opacity:0.85;letter-spacing:0.08em"></small>
         </div>
         <div class="floor"></div>
         <div class="plant" style="left: 1.5%">🪴</div>
@@ -189,6 +190,7 @@
         <div class="flex items-center gap-1">
           <button onclick="setFilter('all')" id="filter-all" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500 text-slate-950">Newest</button>
           <button onclick="setFilter('popular')" id="filter-popular" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/10 text-white hover:bg-white/20">🔥 Popular</button>
+          <span id="close-chip" class="hidden px-2 py-0.5 rounded-lg text-[10px] font-bold"></span>
           <span id="sync-chip" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/10 text-amber-100/70">Connecting…</span>
           <a href="admin.html" title="Teacher controls" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white/10 text-white hover:bg-white/20">⚙︎</a>
         </div>
@@ -213,9 +215,8 @@
             <span id="form-prompt" dir="auto" class="font-semibold"></span>
           </div>
 
-          <div id="locked-notice" class="hidden mt-4 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-center text-xs font-bold">
-            🔒 The wall is closed right now. Your teacher will open it soon.
-          </div>
+          <div id="locked-notice" class="hidden mt-4 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-center text-xs font-bold"></div>
+          <div id="timer-notice" class="hidden mt-3 p-2.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-center text-[11px] font-bold"></div>
           <div id="offline-notice" class="hidden mt-3 p-2.5 bg-amber-50 border border-amber-300 text-amber-800 rounded-xl text-center text-[11px] font-medium"></div>
           <div id="approval-notice" class="hidden mt-3 p-2.5 bg-sky-50 border border-sky-200 text-sky-700 rounded-xl text-center text-[11px] font-medium">
             👀 Your teacher checks each message before it goes on the wall.
@@ -379,8 +380,13 @@
     }
 
     function applySettingsToForm() {
-      const locked = !!settings.isLocked;
-      document.getElementById('locked-notice').classList.toggle('hidden', !locked);
+      const locked = WallStore.isClosed(settings);
+      const lockedNotice = document.getElementById('locked-notice');
+      lockedNotice.textContent = settings.isLocked
+        ? '🔒 The wall is closed right now. Your teacher will open it soon.'
+        : "⏰ Time's up! The wall is closed now. Thank you for your messages.";
+      lockedNotice.classList.toggle('hidden', !locked);
+      applyTimer();
       document.getElementById('approval-notice').classList.toggle('hidden', locked || !settings.requireApproval);
       const submitBtn = document.getElementById('submit-btn');
       submitBtn.disabled = locked;
@@ -390,6 +396,27 @@
       document.getElementById('user-name').disabled = locked;
       document.getElementById('form-prompt').textContent = settings.prompt || '';
       document.getElementById('board-prompt').textContent = settings.prompt || 'Leave a little good energy ✨';
+    }
+
+    // Countdown on the phone, the chalkboard and the wall footer.
+    function applyTimer() {
+      const left = WallStore.msUntilClose(settings);
+      const closed = WallStore.isClosed(settings);
+      const running = left !== null && left > 0;
+      const text = running ? WallStore.formatCountdown(left) : '';
+
+      const phone = document.getElementById('timer-notice');
+      phone.textContent = `⏳ The wall closes in ${text}`;
+      phone.classList.toggle('hidden', !running);
+
+      const board = document.getElementById('board-timer');
+      board.textContent = closed ? 'The wall is closed' : `Closes in ${text}`;
+      board.style.display = running || closed ? 'block' : 'none';
+
+      const chip = document.getElementById('close-chip');
+      chip.textContent = closed ? '🔒 Closed' : `⏳ ${text}`;
+      chip.className = 'px-2 py-0.5 rounded-lg text-[10px] font-bold ' +
+        (closed ? 'bg-rose-500/30 text-rose-100' : running ? 'bg-amber-400/30 text-amber-100' : 'hidden');
     }
 
     function applyConnectionStatus(mode, problem) {
@@ -407,7 +434,7 @@
 
     function submitMessage(e) {
       e.preventDefault();
-      if (settings.isLocked) return;
+      if (WallStore.isClosed(settings)) { applySettingsToForm(); return; }
       showFormError('');
 
       const mode = WallStore.getMode();
@@ -642,6 +669,8 @@
       renderWall();
 
       setInterval(tickSamples, SAMPLE_EVERY_MS);
+      // Keeps the countdown ticking and closes the form the moment time runs out.
+      setInterval(applySettingsToForm, 1000);
       setInterval(() => { WallStore.removeExpired(); renderWall(); }, 30000);
     });
   </script>

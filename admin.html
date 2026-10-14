@@ -65,7 +65,7 @@
           <h3 class="text-sm font-bold text-white">Wall open</h3>
           <p class="text-xs text-slate-400 mt-0.5" id="lock-status-label">Accepting posts</p>
         </div>
-        <button id="sw-open" class="switch" role="switch" aria-checked="true" onclick="toggleSetting('isLocked')" aria-label="Wall open"></button>
+        <button id="sw-open" class="switch" role="switch" aria-checked="true" onclick="toggleOpen()" aria-label="Wall open"></button>
       </div>
 
       <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 flex items-center justify-between gap-3">
@@ -91,6 +91,26 @@
         </div>
         <button onclick="clearAllMessages()" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-rose-600/80 hover:bg-rose-600 text-white shadow">Clear all</button>
       </div>
+    </div>
+
+    <!-- Closing timer -->
+    <div class="bg-slate-800/40 border border-slate-800 rounded-2xl p-4 mb-3">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <label for="close-time-input" class="block text-xs font-bold text-slate-300">⏰ Close the wall automatically</label>
+        <span id="timer-status" class="text-[11px] font-bold text-slate-400">No timer set</span>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="closeIn(5)" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-xl text-xs font-bold transition">5 min</button>
+        <button onclick="closeIn(10)" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-xl text-xs font-bold transition">10 min</button>
+        <button onclick="closeIn(15)" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-xl text-xs font-bold transition">15 min</button>
+        <button onclick="closeIn(30)" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-xl text-xs font-bold transition">30 min</button>
+        <div class="flex gap-2">
+          <input type="time" id="close-time-input" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500 [color-scheme:dark]">
+          <button onclick="closeAtTime()" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-xl text-xs font-bold transition">Set time</button>
+        </div>
+        <button id="cancel-timer-btn" onclick="cancelTimer()" class="hidden bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white px-3 py-2 rounded-xl text-xs font-bold transition border border-rose-500/30">Cancel timer</button>
+      </div>
+      <p class="text-[11px] text-slate-500 mt-2">Students see a countdown, and the form closes when time is up. Turn "Wall open" back on to reopen it.</p>
     </div>
 
     <!-- Today's question -->
@@ -206,6 +226,56 @@
     function toggleSetting(key) {
       WallStore.updateSettings({ [key]: !settings[key] });
     }
+    // ---------- Closing timer ----------
+    function toggleOpen() {
+      if (WallStore.isClosed(settings)) {
+        // Reopen: also clear a timer that has already run out.
+        WallStore.updateSettings({ isLocked: false, closesAt: 0 });
+      } else {
+        WallStore.updateSettings({ isLocked: true });
+      }
+    }
+    function closeIn(minutes) {
+      WallStore.updateSettings({ isLocked: false, closesAt: WallStore.now() + minutes * 60000 })
+        .then(() => showToast(`The wall closes in ${minutes} minutes`));
+    }
+    function closeAtTime() {
+      const value = document.getElementById('close-time-input').value;
+      if (!value) { showToast('Pick a time first'); return; }
+      const [h, m] = value.split(':').map(Number);
+      const target = new Date();
+      target.setHours(h, m, 0, 0);
+      if (target.getTime() <= Date.now()) { showToast('That time has already passed today'); return; }
+      WallStore.updateSettings({ isLocked: false, closesAt: target.getTime() })
+        .then(() => showToast(`The wall closes at ${value}`));
+    }
+    function cancelTimer() {
+      WallStore.updateSettings({ closesAt: 0 }).then(() => showToast('Timer cancelled'));
+    }
+    function renderTimer() {
+      const left = WallStore.msUntilClose(settings);
+      const status = document.getElementById('timer-status');
+      const at = settings.closesAt ? new Date(settings.closesAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      const closedByTimer = !settings.isLocked && settings.closesAt > 0 && left === 0;
+      if (left > 0) {
+        status.textContent = `Closes at ${at} · ${WallStore.formatCountdown(left)} left`;
+        status.className = 'text-[11px] font-bold text-amber-300';
+      } else if (closedByTimer) {
+        status.textContent = `Closed at ${at}`;
+        status.className = 'text-[11px] font-bold text-rose-300';
+      } else {
+        status.textContent = 'No timer set';
+        status.className = 'text-[11px] font-bold text-slate-400';
+      }
+      document.getElementById('cancel-timer-btn').classList.toggle('hidden', !(left > 0));
+      const closed = WallStore.isClosed(settings);
+      setSwitch('sw-open', !closed);
+      document.getElementById('lock-status-label').textContent = settings.isLocked
+        ? 'Closed — students can’t post'
+        : closedByTimer ? 'Closed by the timer' : 'Accepting posts';
+    }
+    setInterval(() => { if (ready) renderTimer(); }, 1000);
+
     function savePrompt() {
       WallStore.updateSettings({ prompt: document.getElementById('prompt-input').value.trim() })
         .then(() => showToast("Today's question saved"));
@@ -277,10 +347,9 @@
         denied: "The database refused access. In Firebase console → Realtime Database → Rules, allow read and write on nook_wall (see database.rules.json in the repo)."
       }[WallStore.getProblem()] || '';
 
-      setSwitch('sw-open', !settings.isLocked);
       setSwitch('sw-approval', !!settings.requireApproval);
       setSwitch('sw-samples', !!settings.showSamples);
-      document.getElementById('lock-status-label').textContent = settings.isLocked ? 'Closed — students can’t post' : 'Accepting posts';
+      renderTimer();
 
       const promptInput = document.getElementById('prompt-input');
       if (document.activeElement !== promptInput) promptInput.value = settings.prompt || '';

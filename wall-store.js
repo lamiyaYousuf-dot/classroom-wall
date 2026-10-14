@@ -104,6 +104,7 @@
 
   const DEFAULT_SETTINGS = {
     isLocked: false,
+    closesAt: 0, // time (ms) when the wall closes by itself; 0 = no timer
     requireApproval: false,
     showSamples: true,
     prompt: 'What made you smile in class today?',
@@ -119,6 +120,7 @@
   // Why the wall isn't live: 'sdk' (Firebase scripts blocked), 'timeout' (database never
   // answered: wrong URL, not created, or network) or 'denied' (database rules refuse access).
   let problem = null;
+  let serverOffset = 0; // difference between this device's clock and Firebase's clock
   const listeners = [];
 
   function snapshot() {
@@ -168,6 +170,8 @@
       if (!window.firebase) throw new Error('Firebase SDK not loaded');
       if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       fbRef = firebase.database().ref(ROOT);
+      // Phones with a wrong clock would otherwise close the wall early or late.
+      firebase.database().ref('.info/serverTimeOffset').on('value', s => { serverOffset = s.val() || 0; });
     } catch (e) {
       startLocal('sdk');
       return;
@@ -234,6 +238,29 @@
     return Promise.resolve();
   }
 
+  // ---------- closing timer ----------
+  function now() { return Date.now() + serverOffset; }
+
+  // Closed by the switch, or because the closing time has passed.
+  function isClosed(s) {
+    s = s || settings;
+    return !!s.isLocked || (s.closesAt > 0 && now() >= s.closesAt);
+  }
+
+  // Milliseconds until the wall closes, or null when no timer is running.
+  function msUntilClose(s) {
+    s = s || settings;
+    if (s.isLocked || !(s.closesAt > 0)) return null;
+    return Math.max(0, s.closesAt - now());
+  }
+
+  function formatCountdown(ms) {
+    const total = Math.ceil(ms / 1000);
+    const h = Math.floor(total / 3600), m = Math.floor(total % 3600 / 60), sec = total % 60;
+    const pad = n => String(n).padStart(2, '0');
+    return h ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+  }
+
   function removeExpired() {
     const now = Date.now();
     messages
@@ -297,6 +324,7 @@
     getProblem: () => problem,
     databaseUrl: FIREBASE_CONFIG.databaseURL,
     addMessage, heart, remove, approve, clearAll, updateSettings, removeExpired,
+    now, isClosed, msUntilClose, formatCountdown,
     findBannedWord, hashPin, isAdminHere, setAdminHere, escapeHtml, character
   };
 

@@ -6,7 +6,7 @@
   // From Firebase console → Project settings → Your apps → Web app. The apiKey is not a
   // secret (it only identifies the project); security comes from database.rules.json.
   const FIREBASE_CONFIG = {
-    apiKey: "",
+    apiKey: "AIzaSyAQc_L31iK9AvRT2gwB8eAAnF8VfBW7g1k",
     authDomain: "classroom-wall-73f88.firebaseapp.com",
     projectId: "classroom-wall-73f88",
     databaseURL: "https://classroom-wall-73f88-default-rtdb.firebaseio.com"

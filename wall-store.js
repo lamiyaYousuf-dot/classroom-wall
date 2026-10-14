@@ -213,6 +213,7 @@
   }
 
   function startAuth() {
+    if (auth.available) return;
     if (!FIREBASE_CONFIG.apiKey || !firebase.auth) { auth.ready = true; return; }
     auth.available = true;
     firebase.auth().onAuthStateChanged(async user => {
@@ -383,8 +384,10 @@
     addMessage, heart, remove, approve, clearAll, updateSettings, removeExpired,
     now, isClosed, msUntilClose, formatCountdown,
     signIn, signOut, resetPassword, getAuth: () => ({ ...auth }),
+    // Pages that set WALL_WAIT_FOR_AUTH call this once the sign-in script has loaded.
+    start: () => { if (!startFirebase.started) { startFirebase.started = true; startFirebase(); } },
     findBannedWord, isAdminHere, setAdminHere, escapeHtml, character
   };
 
-  startFirebase();
+  if (!window.WALL_WAIT_FOR_AUTH) window.WallStore.start();
 })();

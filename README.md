@@ -31,6 +31,10 @@ NFC tag) and send a short note from their phone, in English or Arabic.
 
 Students can send one message every 15 seconds. Messages disappear after 30 minutes.
 
+**Styles:** the pages use a prebuilt `styles.css` (Tailwind) so phones don't have to generate styles
+when they open the page. If you add or change Tailwind classes in the HTML, rebuild it:
+`npx tailwindcss@3 -i styles.src.css -o styles.css --content "index.html,admin.html,wall-store.js" --minify`
+
 The QR code is drawn in the page by `qrcode.js` (MIT, Kazuhiko Arase), so it works without any outside QR service.
 
 ## Live sync

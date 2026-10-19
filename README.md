@@ -90,7 +90,3 @@ The rules are tested against the Firebase emulator (34 checks, including every c
 **Remaining limits:** blocked words and the 15-second send limit still run in the browser, so a
 technical student could bypass them by writing to the database directly. Use **Review before posting**
 when you need to be certain nothing appears without your approval.
-
-## Also in this repo
-
-- [`learning-integrity-agent/`](learning-integrity-agent/README.md): an AI agent that spots LinkedIn Learning and Udemy Business course completions that look like nobody was really watching (for example, an AI agent playing the videos), and writes verification checks.
